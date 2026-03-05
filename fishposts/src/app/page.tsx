@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { MODE_INFO, type ContentMode } from "@/lib/prompts";
 
 /* ================================================================
    TYPES
    ================================================================ */
 
 type AppState = "idle" | "generating" | "done" | "error";
-type InputMode = "url" | "text";
+type WindowId = "fishposts" | "recent_memes";
 
 interface ProgressEvent {
   type: "progress" | "done" | "error";
@@ -15,20 +16,24 @@ interface ProgressEvent {
   percent?: number;
   memeUrl?: string;
   pageUrl?: string;
+  textContent?: string[];
+  textTitle?: string;
+  mode?: string;
   error?: string;
+}
+
+interface WindowState {
+  x: number;
+  y: number;
+  zIndex: number;
+  minimized: boolean;
+  maximized: boolean;
+  preMaxPos?: { x: number; y: number };
 }
 
 /* ================================================================
    STATIC DATA
    ================================================================ */
-
-const TAGLINES = [
-  "Paste a URL, get a meme that\u2019s weirdly accurate",
-  "Our fish reads your website. Yes, really.",
-  "Making the internet funnier, one URL at a time",
-  "The meme generator that actually gets the joke",
-  "AI-powered comedy. You\u2019re welcome.",
-];
 
 const FISH_LOGS = [
   "C:\\fishposts> deploy_fish.exe",
@@ -76,10 +81,10 @@ const EXAMPLE_URLS = [
 ];
 
 const STEPS = [
-  { num: "1", emoji: "\uD83D\uDD17", title: "Drop a URL", desc: "Any website. We don\u2019t judge." },
-  { num: "2", emoji: "\uD83D\uDC1F", title: "Fish reads it", desc: "Our AI literally browses your page." },
-  { num: "3", emoji: "\uD83C\uDFA8", title: "Template magic", desc: "Picks the perfect meme format." },
-  { num: "4", emoji: "\uD83D\uDC80", title: "Meme drops", desc: "So specific it\u2019s scary." },
+  { num: "1", emoji: "\uD83D\uDD17", title: "Pick a mode", desc: "Click Start and choose your weapon." },
+  { num: "2", emoji: "\uD83D\uDC1F", title: "Feed the fish", desc: "Drop a URL, paste a take, or let it roam." },
+  { num: "3", emoji: "\uD83C\uDFA8", title: "Fish does its thing", desc: "Our AI literally browses the internet." },
+  { num: "4", emoji: "\uD83D\uDC80", title: "Content drops", desc: "Memes, threads, dispatches \u2014 so specific it's scary." },
 ];
 
 const FISH_FACTS = [
@@ -100,7 +105,6 @@ const FISH_FACTS = [
 const SPARKLE_CHARS = ["\u2726", "\u2727", "\u2605", "\u00B7", "\u22C6"];
 const NEON_COLORS = ["#FF00FF", "#00FFFF", "#FFFF00", "#00FF00"];
 
-/* Sparkle burst pieces for done state */
 const SPARKLE_BURST = Array.from({ length: 24 }, (_, i) => ({
   left: `${(i * 4.3 + 3) % 100}%`,
   char: SPARKLE_CHARS[i % SPARKLE_CHARS.length],
@@ -108,6 +112,86 @@ const SPARKLE_BURST = Array.from({ length: 24 }, (_, i) => ({
   delay: `${(i * 0.05).toFixed(2)}s`,
   duration: `${(1.2 + (i * 0.08) % 1).toFixed(2)}s`,
 }));
+
+/** Mode descriptions shown in idle state */
+const MODE_FLAVOR: Record<ContentMode, { tagline: string; placeholder?: string; inputType: "url" | "text" | "none" }> = {
+  site_roast: {
+    tagline: "Paste a URL. The fish visits it. A meme appears.",
+    placeholder: "https://your-favorite-website.com",
+    inputType: "url",
+  },
+  trend_roast: {
+    tagline: "The fish browses trending tech news and makes fun of whatever it finds.",
+    inputType: "none",
+  },
+  quote_dunks: {
+    tagline: "Paste a tweet, a LinkedIn post, a hot take. Get 3 devastating responses.",
+    placeholder: "Paste a tweet, a LinkedIn post, a hot take...",
+    inputType: "text",
+  },
+  fish_dispatches: {
+    tagline: "The fish visits your URL and writes unhinged first-person dispatches.",
+    placeholder: "https://where-should-the-fish-go.com",
+    inputType: "url",
+  },
+  unhinged_threads: {
+    tagline: "The fish researches a topic and writes a thread that escalates into chaos.",
+    placeholder: "What topic should the fish go off about?",
+    inputType: "text",
+  },
+  chaos_mode: {
+    tagline: "Random template + random tone + your input = pure WTF.",
+    placeholder: "Type literally anything...",
+    inputType: "text",
+  },
+  corporate_bs: {
+    tagline: "Paste corporate speak. The fish translates what it actually means.",
+    placeholder: "Paste a corporate email, LinkedIn post, or press release...",
+    inputType: "text",
+  },
+  plot_twist: {
+    tagline: "Enter any statement. Get a meme with a devastating plot twist.",
+    placeholder: "Type any normal statement...",
+    inputType: "text",
+  },
+  excuse_gen: {
+    tagline: "Describe the situation. Get a Win98 error message as your excuse.",
+    placeholder: "What do you need an excuse for?",
+    inputType: "text",
+  },
+};
+
+/** Start Menu mode groups */
+const MEME_MODES: ContentMode[] = [
+  "site_roast",
+  "trend_roast",
+  "chaos_mode",
+  "plot_twist",
+];
+
+const TEXT_MODES: ContentMode[] = [
+  "quote_dunks",
+  "fish_dispatches",
+  "unhinged_threads",
+  "corporate_bs",
+  "excuse_gen",
+];
+
+/** All modes flat (for validation, etc.) */
+const MODE_ORDER: ContentMode[] = [...MEME_MODES, ...TEXT_MODES];
+
+/** Short description for each mode in the Start Menu */
+const MODE_DESC: Record<ContentMode, string> = {
+  site_roast: "URL → meme",
+  trend_roast: "trending news → meme",
+  chaos_mode: "your text → random meme",
+  plot_twist: "your text → plot twist meme",
+  quote_dunks: "hot take → 3 dunks",
+  fish_dispatches: "URL → fish reviews the site",
+  unhinged_threads: "topic → viral thread",
+  corporate_bs: "corporate text → translation",
+  excuse_gen: "situation → Win98 error excuse",
+};
 
 /* ================================================================
    SUB-COMPONENTS
@@ -144,31 +228,207 @@ function Win98Window({
   children,
   className,
   statusBar,
+  windowState,
+  isDesktop,
+  onMinimize,
+  onMaximize,
+  onClose,
+  onFocus,
+  onDragStart,
 }: {
   title: string;
   children: React.ReactNode;
   className?: string;
   statusBar?: React.ReactNode;
+  windowState: WindowState;
+  isDesktop: boolean;
+  onMinimize: () => void;
+  onMaximize: () => void;
+  onClose: () => void;
+  onFocus: () => void;
+  onDragStart: (e: React.MouseEvent) => void;
 }) {
+  const maximizedStyle: React.CSSProperties | undefined =
+    isDesktop && windowState.maximized
+      ? {
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width: "100%",
+          height: "calc(100vh - 42px)",
+          zIndex: windowState.zIndex,
+        }
+      : isDesktop
+        ? {
+            position: "absolute",
+            left: windowState.x,
+            top: windowState.y,
+            zIndex: windowState.zIndex,
+          }
+        : undefined;
+
   return (
-    <div className={`win-window ${className || ""}`}>
-      <div className="win-titlebar">
+    <div
+      className={`win-window ${className || ""} ${windowState.minimized ? "win-window-minimized" : ""} ${windowState.maximized ? "win-window-maximized" : ""}`}
+      style={maximizedStyle}
+      onMouseDown={onFocus}
+    >
+      <div
+        className={`win-titlebar ${isDesktop && !windowState.maximized ? "win-titlebar-draggable" : ""}`}
+        onMouseDown={(e) => {
+          if (!(e.target as HTMLElement).closest(".win-buttons")) {
+            onDragStart(e);
+          }
+        }}
+        onDoubleClick={(e) => {
+          if (isDesktop && !(e.target as HTMLElement).closest(".win-buttons")) {
+            onMaximize();
+          }
+        }}
+      >
         <div className="win-title">
           <span>{"\uD83D\uDC1F"}</span> {title}
         </div>
         <div className="win-buttons">
-          <button className="win-btn" aria-label="Minimize">_</button>
-          <button className="win-btn" aria-label="Maximize">{"\u25A1"}</button>
-          <button className="win-btn" aria-label="Close">{"\u00D7"}</button>
+          <button
+            className="win-btn"
+            aria-label="Minimize"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMinimize();
+            }}
+          >
+            _
+          </button>
+          <button
+            className="win-btn"
+            aria-label="Maximize"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMaximize();
+            }}
+          >
+            {windowState.maximized ? "\u2750" : "\u25A1"}
+          </button>
+          <button
+            className="win-btn"
+            aria-label="Close"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+          >
+            {"\u00D7"}
+          </button>
         </div>
       </div>
-      <div className="win-body">{children}</div>
-      {statusBar && <>{statusBar}</>}
+      {!windowState.minimized && (
+        <>
+          <div className="win-body">{children}</div>
+          {statusBar && <>{statusBar}</>}
+        </>
+      )}
     </div>
   );
 }
 
-function Taskbar({ memeCount }: { memeCount: number }) {
+function StartMenu({
+  isOpen,
+  activeMode,
+  onSelectMode,
+  onClose,
+}: {
+  isOpen: boolean;
+  activeMode: ContentMode;
+  onSelectMode: (mode: ContentMode) => void;
+  onClose: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(target) &&
+        !target.closest(".start-btn")
+      ) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const renderModeItem = (mode: ContentMode) => {
+    const info = MODE_INFO[mode];
+    return (
+      <button
+        key={mode}
+        className={`start-menu-item ${mode === activeMode ? "start-menu-item-active" : ""}`}
+        onClick={() => {
+          onSelectMode(mode);
+          onClose();
+        }}
+      >
+        <span className="start-menu-icon">{info.icon}</span>
+        <span className="start-menu-label-wrap">
+          <span className="start-menu-label">{info.label}</span>
+          <span className="start-menu-desc">{MODE_DESC[mode]}</span>
+        </span>
+      </button>
+    );
+  };
+
+  return (
+    <div className="start-menu" ref={menuRef}>
+      <div className="start-menu-sidebar">
+        <span className="start-menu-sidebar-text">FishPosts 98</span>
+      </div>
+      <div className="start-menu-items">
+        <div className="start-menu-section-header">
+          <span className="start-menu-section-icon">{"\uD83D\uDDBC\uFE0F"}</span>
+          Meme Generators
+        </div>
+        {MEME_MODES.map(renderModeItem)}
+        <div className="start-menu-divider" />
+        <div className="start-menu-section-header">
+          <span className="start-menu-section-icon">{"\uD83D\uDCDD"}</span>
+          Text Generators
+        </div>
+        {TEXT_MODES.map(renderModeItem)}
+        <div className="start-menu-divider" />
+        <div className="start-menu-item start-menu-item-disabled">
+          <span className="start-menu-icon">{"\u2699\uFE0F"}</span>
+          <span className="start-menu-label-wrap">
+            <span className="start-menu-label">Settings (coming soon)</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Taskbar({
+  memeCount,
+  windows,
+  topZ,
+  activeMode,
+  startMenuOpen,
+  onStartClick,
+  onWindowClick,
+}: {
+  memeCount: number;
+  windows: Record<WindowId, WindowState>;
+  topZ: number;
+  activeMode: ContentMode;
+  startMenuOpen: boolean;
+  onStartClick: () => void;
+  onWindowClick: (id: WindowId) => void;
+}) {
   const [time, setTime] = useState("");
 
   useEffect(() => {
@@ -187,18 +447,37 @@ function Taskbar({ memeCount }: { memeCount: number }) {
     return () => clearInterval(interval);
   }, []);
 
+  // Dynamic window config with mode-specific title
+  const windowConfig: Record<WindowId, { title: string; icon: string }> = {
+    fishposts: {
+      title: MODE_INFO[activeMode].exe,
+      icon: MODE_INFO[activeMode].icon,
+    },
+    recent_memes: { title: "recent_memes.exe", icon: "\uD83D\uDCC1" },
+  };
+
   return (
     <div className="taskbar">
-      <button className="start-btn">
+      <button
+        className={`start-btn ${startMenuOpen ? "start-btn-pressed" : ""}`}
+        onClick={onStartClick}
+      >
         <span className="start-flag">{"\uD83E\uDE9F"}</span> Start
       </button>
       <div className="taskbar-windows">
-        <button className="taskbar-window-btn taskbar-window-active">
-          {"\uD83D\uDC1F"} fishposts.exe
-        </button>
-        <button className="taskbar-window-btn">
-          {"\uD83D\uDCC1"} recent_memes
-        </button>
+        {(Object.keys(windowConfig) as WindowId[]).map((id) => (
+          <button
+            key={id}
+            className={`taskbar-window-btn ${
+              windows[id].zIndex === topZ && !windows[id].minimized
+                ? "taskbar-window-active"
+                : ""
+            }`}
+            onClick={() => onWindowClick(id)}
+          >
+            {windowConfig[id].icon} {windowConfig[id].title}
+          </button>
+        ))}
       </div>
       <div className="system-tray">
         {memeCount > 0 && (
@@ -217,10 +496,134 @@ function Marquee() {
   return (
     <div className="marquee-bar">
       <div className="marquee-text">
-        {"\u2605"} WELCOME TO FISHPOSTS DOT COM {"\u2605"} OUR FISH READS YOUR
-        WEBSITE AND MAKES A MEME {"\u2605"} 100% FREE {"\u2605"} NO LOGIN{" "}
-        {"\u2605"} POWERED BY A LITERAL FISH BROWSING THE INTERNET {"\u2605"}{" "}
-        FISHPOSTS DOT COM {"\u2605"}
+        {"\u2605"} WELCOME TO FISHPOSTS DOT COM {"\u2605"} 9 MODES OF UNHINGED
+        CONTENT {"\u2605"} CLICK START TO BEGIN {"\u2605"} POWERED BY A LITERAL
+        FISH BROWSING THE INTERNET {"\u2605"} 100% FREE {"\u2605"} NO LOGIN{" "}
+        {"\u2605"} FISHPOSTS DOT COM {"\u2605"}
+      </div>
+    </div>
+  );
+}
+
+/** Text card display for text mode results */
+function TextCardResult({
+  lines,
+  title,
+  mode,
+}: {
+  lines: string[];
+  title?: string;
+  mode: ContentMode;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+
+  const handleSaveAsImage = async () => {
+    setSaving(true);
+    setSaveError(false);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await fetch("/api/render-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, content: lines, title }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error("Failed to render card");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `fishposts-${mode}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      clearTimeout(timeout);
+      setSaveError(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /* ---- Win98 Error Dialog for excuse_gen ---- */
+  if (mode === "excuse_gen") {
+    return (
+      <div className="excuse-dialog">
+        <div className="excuse-dialog-titlebar">
+          <span>⚠️ excuse_gen.exe</span>
+          <span className="excuse-dialog-close">×</span>
+        </div>
+        <div className="excuse-dialog-body">
+          <div className="excuse-dialog-icon">⚠️</div>
+          <div className="excuse-dialog-content">
+            {title && <div className="excuse-dialog-situation">{title}</div>}
+            <div className="excuse-dialog-excuse">{lines[0] || "Error: no excuse generated."}</div>
+          </div>
+        </div>
+        <div className="excuse-dialog-footer">
+          <button className="excuse-dialog-btn">OK</button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <button
+            className="win98-btn win98-btn-sm"
+            onClick={handleSaveAsImage}
+            disabled={saving}
+          >
+            <IconDownload /> {saving ? "Saving..." : "Save as Image"}
+          </button>
+          {saveError && (
+            <span style={{ color: "#ff4444", fontSize: 12 }}>
+              Failed — try again
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* ---- Mode-specific emojis for line badges ---- */
+  const modeEmojis: Record<string, string[]> = {
+    quote_dunks: ["\uD83D\uDDE1\uFE0F", "\uD83D\uDD25", "\uD83D\uDCA3"],
+    fish_dispatches: ["\uD83D\uDC1F", "\uD83D\uDC1F", "\uD83D\uDC1F", "\uD83D\uDC1F", "\uD83D\uDC1F"],
+    unhinged_threads: ["\uD83E\uDDF5", "\uD83E\uDDF5", "\uD83E\uDDF5", "\uD83E\uDDF5", "\uD83E\uDDF5"],
+    corporate_bs: ["\uD83D\uDCBC", "\uD83D\uDCBC", "\uD83D\uDCBC", "\uD83D\uDCBC", "\uD83D\uDCBC"],
+  };
+  const emojis = modeEmojis[mode] || [];
+
+  return (
+    <div className="text-card" data-mode={mode}>
+      {title && (
+        <div className="text-card-header">
+          <span className="text-card-header-icon">{MODE_INFO[mode]?.icon || "\uD83D\uDC1F"}</span>
+          <span className="text-card-title">{title}</span>
+        </div>
+      )}
+      <div className="text-card-lines">
+        {lines.map((line, i) => (
+          <div key={i} className="text-card-line" style={{ animationDelay: `${i * 0.1}s` }}>
+            <span className="text-card-badge">{emojis[i] || `${i + 1}`}</span>
+            <span className="text-card-text">{line}</span>
+          </div>
+        ))}
+      </div>
+      <div className="text-card-footer">
+        <span className="text-card-watermark">{"\uD83D\uDC1F"} fishposts.exe</span>
+        <button
+          className="win98-btn win98-btn-sm"
+          onClick={handleSaveAsImage}
+          disabled={saving}
+        >
+          <IconDownload /> {saving ? "Saving..." : "Save as Image"}
+        </button>
+        {saveError && (
+          <span style={{ color: "#ff4444", fontSize: 12 }}>
+            Failed — try again
+          </span>
+        )}
       </div>
     </div>
   );
@@ -231,7 +634,8 @@ function Marquee() {
    ================================================================ */
 
 export default function Home() {
-  const [inputMode, setInputMode] = useState<InputMode>("text");
+  /* ---- App state ---- */
+  const [activeMode, setActiveMode] = useState<ContentMode>("site_roast");
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
   const [state, setState] = useState<AppState>("idle");
@@ -239,18 +643,37 @@ export default function Home() {
   const [progress, setProgress] = useState(0);
   const [memeUrl, setMemeUrl] = useState("");
   const [pageUrl, setPageUrl] = useState("");
+  const [textContent, setTextContent] = useState<string[]>([]);
+  const [textTitle, setTextTitle] = useState<string | undefined>();
   const [errorMsg, setErrorMsg] = useState("");
   const [copied, setCopied] = useState(false);
   const [fishLogs, setFishLogs] = useState<string[]>([]);
-  const [taglineIdx, setTaglineIdx] = useState(0);
   const [factIdx, setFactIdx] = useState(0);
   const [memeCount, setMemeCount] = useState(0);
   const [recentMemes, setRecentMemes] = useState<string[]>([]);
+  const [startMenuOpen, setStartMenuOpen] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const logRef = useRef<NodeJS.Timeout | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const stateRef = useRef<AppState>("idle");
   const logIdx = useRef(0);
+
+  /* ---- Window management state ---- */
+  const [windows, setWindows] = useState<Record<WindowId, WindowState>>({
+    fishposts: { x: 0, y: 0, zIndex: 2, minimized: false, maximized: false },
+    recent_memes: { x: 0, y: 0, zIndex: 1, minimized: false, maximized: false },
+  });
+  const [topZ, setTopZ] = useState(2);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const dragRef = useRef<{
+    windowId: WindowId;
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+  } | null>(null);
+
+  /* ---- Helpers ---- */
 
   const setAppState = useCallback((s: AppState) => {
     stateRef.current = s;
@@ -274,15 +697,40 @@ export default function Home() {
 
   useEffect(() => cleanup, [cleanup]);
 
-  /* Rotating taglines */
+  /* ---- isDesktop media query ---- */
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTaglineIdx((prev) => (prev + 1) % TAGLINES.length);
-    }, 4000);
-    return () => clearInterval(interval);
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    setIsDesktop(mq.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
   }, []);
 
-  /* Rotating fish facts */
+  /* ---- Calculate initial window positions when entering desktop mode ---- */
+  useEffect(() => {
+    if (isDesktop) {
+      const vw = window.innerWidth;
+      const contentWidth = Math.min(1100, vw - 48);
+      const offsetX = (vw - contentWidth) / 2;
+
+      setWindows((prev) => ({
+        recent_memes: {
+          ...prev.recent_memes,
+          x: offsetX,
+          y: 60,
+          minimized: false,
+        },
+        fishposts: {
+          ...prev.fishposts,
+          x: offsetX + 380 + 16,
+          y: 60,
+          minimized: false,
+        },
+      }));
+    }
+  }, [isDesktop]);
+
+  /* ---- Rotating fish facts ---- */
   useEffect(() => {
     const interval = setInterval(() => {
       setFactIdx((prev) => (prev + 1) % FISH_FACTS.length);
@@ -290,7 +738,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  /* Meme counter + recent memes from localStorage */
+  /* ---- Meme counter + recent memes from localStorage ---- */
   useEffect(() => {
     const saved = localStorage.getItem("fishposts-count");
     if (saved) setMemeCount(parseInt(saved, 10) || 0);
@@ -304,7 +752,7 @@ export default function Home() {
     }
   }, []);
 
-  /* Mouse sparkle trail */
+  /* ---- Mouse sparkle trail ---- */
   useEffect(() => {
     let lastSparkle = 0;
 
@@ -329,9 +777,146 @@ export default function Home() {
     return () => document.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
-  /* ---- Generate handler ---- */
+  /* ================================================================
+     WINDOW MANAGEMENT — Drag, Focus, Minimize, Maximize
+     ================================================================ */
 
-  const canGenerate = inputMode === "url" ? url.trim() : text.trim();
+  const bringToFront = useCallback((windowId: WindowId) => {
+    setTopZ((prev) => {
+      const newZ = prev + 1;
+      setWindows((w) => ({
+        ...w,
+        [windowId]: { ...w[windowId], zIndex: newZ },
+      }));
+      return newZ;
+    });
+  }, []);
+
+  const handleDragMove = useCallback((e: MouseEvent) => {
+    if (!dragRef.current) return;
+    const { windowId, startX, startY, origX, origY } = dragRef.current;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    const newX = origX + dx;
+    const newY = origY + dy;
+
+    const clampedX = Math.max(-400, Math.min(window.innerWidth - 100, newX));
+    const clampedY = Math.max(0, Math.min(window.innerHeight - 50, newY));
+
+    setWindows((prev) => ({
+      ...prev,
+      [windowId]: {
+        ...prev[windowId],
+        x: clampedX,
+        y: clampedY,
+      },
+    }));
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    dragRef.current = null;
+    document.removeEventListener("mousemove", handleDragMove);
+    document.removeEventListener("mouseup", handleDragEnd);
+  }, [handleDragMove]);
+
+  const handleDragStart = useCallback(
+    (windowId: WindowId) => (e: React.MouseEvent) => {
+      if (!isDesktop) return;
+      const ws = windows[windowId];
+      if (ws.maximized) return;
+      e.preventDefault();
+      dragRef.current = {
+        windowId,
+        startX: e.clientX,
+        startY: e.clientY,
+        origX: ws.x,
+        origY: ws.y,
+      };
+
+      bringToFront(windowId);
+      document.addEventListener("mousemove", handleDragMove);
+      document.addEventListener("mouseup", handleDragEnd);
+    },
+    [isDesktop, windows, bringToFront, handleDragMove, handleDragEnd]
+  );
+
+  const handleMinimize = useCallback((windowId: WindowId) => {
+    setWindows((prev) => ({
+      ...prev,
+      [windowId]: { ...prev[windowId], minimized: true },
+    }));
+  }, []);
+
+  const handleMaximize = useCallback((windowId: WindowId) => {
+    if (!isDesktop) return;
+    setWindows((prev) => {
+      const ws = prev[windowId];
+      if (ws.maximized) {
+        return {
+          ...prev,
+          [windowId]: {
+            ...ws,
+            maximized: false,
+            x: ws.preMaxPos?.x ?? ws.x,
+            y: ws.preMaxPos?.y ?? ws.y,
+            preMaxPos: undefined,
+          },
+        };
+      }
+      return {
+        ...prev,
+        [windowId]: {
+          ...ws,
+          maximized: true,
+          preMaxPos: { x: ws.x, y: ws.y },
+        },
+      };
+    });
+    bringToFront(windowId);
+  }, [isDesktop, bringToFront]);
+
+  const handleWindowFocus = useCallback(
+    (windowId: WindowId) => {
+      if (windows[windowId].zIndex !== topZ) {
+        bringToFront(windowId);
+      }
+    },
+    [windows, topZ, bringToFront]
+  );
+
+  const handleTaskbarWindowClick = useCallback(
+    (id: WindowId) => {
+      const ws = windows[id];
+      if (ws.minimized) {
+        setWindows((prev) => ({
+          ...prev,
+          [id]: { ...prev[id], minimized: false },
+        }));
+        bringToFront(id);
+      } else if (ws.zIndex === topZ) {
+        setWindows((prev) => ({
+          ...prev,
+          [id]: { ...prev[id], minimized: true },
+        }));
+      } else {
+        bringToFront(id);
+      }
+    },
+    [windows, topZ, bringToFront]
+  );
+
+  /* ================================================================
+     GENERATE HANDLER
+     ================================================================ */
+
+  const flavor = MODE_FLAVOR[activeMode];
+  const canGenerate =
+    flavor.inputType === "none"
+      ? true
+      : flavor.inputType === "url"
+        ? url.trim().length > 0
+        : text.trim().length > 0;
 
   const handleGenerate = async () => {
     if (!canGenerate) return;
@@ -339,12 +924,17 @@ export default function Home() {
     setAppState("generating");
     setMemeUrl("");
     setPageUrl("");
+    setTextContent([]);
+    setTextTitle(undefined);
     setErrorMsg("");
     setCopied(false);
     setProgress(0);
     setStatusMessage(STATUS_MESSAGES[0]);
     logIdx.current = 0;
     setFishLogs([FISH_LOGS[0]]);
+
+    // Close start menu if open
+    setStartMenuOpen(false);
 
     const startTime = Date.now();
     const statusIdx = { current: 0 };
@@ -374,15 +964,20 @@ export default function Home() {
     const controller = new AbortController();
     abortRef.current = controller;
 
+    // Build request body based on active mode
+    const body: Record<string, string> = { mode: activeMode };
+    if (flavor.inputType === "url") {
+      body.url = url.trim();
+    } else if (flavor.inputType === "text") {
+      body.text = text.trim();
+    }
+    // "none" input type (trend_roast) sends just { mode }
+
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          inputMode === "url"
-            ? { url: url.trim() }
-            : { text: text.trim() }
-        ),
+        body: JSON.stringify(body),
         signal: controller.signal,
       });
 
@@ -413,30 +1008,38 @@ export default function Home() {
               if (event.message) setStatusMessage(event.message);
               if (event.percent)
                 setProgress((prev) => Math.max(prev, event.percent!));
-            } else if (event.type === "done" && event.memeUrl) {
+            } else if (event.type === "done") {
               gotFinal = true;
               cleanup();
               setProgress(100);
-              setMemeUrl(event.memeUrl);
-              if (event.pageUrl) setPageUrl(event.pageUrl);
+
+              if (event.memeUrl) {
+                // Meme mode result
+                setMemeUrl(event.memeUrl);
+                if (event.pageUrl) setPageUrl(event.pageUrl);
+                setMemeCount((prev) => {
+                  const next = prev + 1;
+                  localStorage.setItem("fishposts-count", String(next));
+                  return next;
+                });
+                setRecentMemes((prev) => {
+                  const updated = [
+                    event.memeUrl!,
+                    ...prev.filter((u) => u !== event.memeUrl),
+                  ].slice(0, 6);
+                  localStorage.setItem(
+                    "fishposts-recent",
+                    JSON.stringify(updated)
+                  );
+                  return updated;
+                });
+              } else if (event.textContent) {
+                // Text mode result
+                setTextContent(event.textContent);
+                if (event.textTitle) setTextTitle(event.textTitle);
+              }
+
               setAppState("done");
-              /* Increment meme counter + save to recent memes */
-              setMemeCount((prev) => {
-                const next = prev + 1;
-                localStorage.setItem("fishposts-count", String(next));
-                return next;
-              });
-              setRecentMemes((prev) => {
-                const updated = [
-                  event.memeUrl!,
-                  ...prev.filter((u) => u !== event.memeUrl),
-                ].slice(0, 6);
-                localStorage.setItem(
-                  "fishposts-recent",
-                  JSON.stringify(updated)
-                );
-                return updated;
-              });
             } else if (event.type === "error") {
               gotFinal = true;
               cleanup();
@@ -464,14 +1067,18 @@ export default function Home() {
     }
   };
 
-  /* ---- Handlers ---- */
+  /* ---- Action handlers ---- */
 
   const handleCopy = async () => {
     const u = pageUrl || memeUrl;
     if (!u) return;
-    await navigator.clipboard.writeText(u);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(u);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard API denied — ignore */
+    }
   };
 
   const handleDownload = () => {
@@ -489,15 +1096,35 @@ export default function Home() {
     setAppState("idle");
     setMemeUrl("");
     setPageUrl("");
+    setTextContent([]);
+    setTextTitle(undefined);
     setErrorMsg("");
     setProgress(0);
     setFishLogs([]);
   };
 
   const handleDesktopIconClick = (exUrl: string) => {
-    setInputMode("url");
+    setActiveMode("site_roast");
     setUrl(exUrl);
+    handleReset();
   };
+
+  const handleModeSelect = (mode: ContentMode) => {
+    setActiveMode(mode);
+    // Reset to idle when switching modes
+    if (state !== "generating") {
+      handleReset();
+    }
+    // Ensure fishposts window is visible and focused
+    setWindows((prev) => ({
+      ...prev,
+      fishposts: { ...prev.fishposts, minimized: false },
+    }));
+    bringToFront("fishposts");
+  };
+
+  /* ---- Current mode info ---- */
+  const modeInfo = MODE_INFO[activeMode];
 
   /* ================================================================
      RENDER
@@ -507,7 +1134,7 @@ export default function Home() {
     <div className="desktop">
       <Marquee />
 
-      {/* Desktop icons — 1280px+ only (CSS hidden below) */}
+      {/* Desktop icons */}
       <div className="desktop-icons" aria-hidden="true">
         {EXAMPLE_URLS.map((ex) => (
           <button
@@ -522,12 +1149,19 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Two-column content */}
+      {/* Two-window content area */}
       <div className="desktop-content">
         {/* LEFT WINDOW: recent_memes.exe */}
         <Win98Window
           title="recent_memes.exe"
           className="win-window-side"
+          windowState={windows.recent_memes}
+          isDesktop={isDesktop}
+          onMinimize={() => handleMinimize("recent_memes")}
+          onMaximize={() => handleMaximize("recent_memes")}
+          onClose={() => handleMinimize("recent_memes")}
+          onFocus={() => handleWindowFocus("recent_memes")}
+          onDragStart={handleDragStart("recent_memes")}
           statusBar={
             <div className="win-statusbar" key={factIdx}>
               {FISH_FACTS[factIdx].emoji} {FISH_FACTS[factIdx].fact}
@@ -583,56 +1217,40 @@ export default function Home() {
         </Win98Window>
 
         {/* RIGHT WINDOW: fishposts.exe (main) */}
-        <Win98Window title="fishposts.exe" className="win-window-main">
+        <Win98Window
+          title={modeInfo.exe}
+          className="win-window-main"
+          windowState={windows.fishposts}
+          isDesktop={isDesktop}
+          onMinimize={() => handleMinimize("fishposts")}
+          onMaximize={() => handleMaximize("fishposts")}
+          onClose={() => handleMinimize("fishposts")}
+          onFocus={() => handleWindowFocus("fishposts")}
+          onDragStart={handleDragStart("fishposts")}
+        >
           {/* ---- IDLE STATE ---- */}
           {state === "idle" && (
             <div className="state-enter">
-              {/* Fishstick GIF */}
-              <div style={{ textAlign: "center", marginBottom: 8 }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="https://media1.tenor.com/m/y-N3_SzK0OcAAAAC/sussy-baka.gif"
-                  alt="Fishstick"
-                  className="win-fishstick"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
-              </div>
+              <h1 className="impact headline">
+                {modeInfo.icon} {modeInfo.label.toUpperCase()}
+              </h1>
+              <p className="subhead">{flavor.tagline}</p>
 
-              <h1 className="impact headline">FISHPOSTS</h1>
-              <p className="subhead" key={taglineIdx}>
-                {TAGLINES[taglineIdx]}
-              </p>
-
-              {/* Mode tabs */}
-              <div className="win-tabs">
-                <button
-                  className={`win-tab ${inputMode === "url" ? "active" : ""}`}
-                  onClick={() => setInputMode("url")}
-                >
-                  {"\uD83D\uDD17"} URL
-                </button>
-                <button
-                  className={`win-tab ${inputMode === "text" ? "active" : ""}`}
-                  onClick={() => setInputMode("text")}
-                >
-                  {"\u270D\uFE0F"} Text
-                </button>
-              </div>
-
+              {/* Mode-specific input */}
               <div className="win-tab-body">
-                {inputMode === "url" ? (
+                {flavor.inputType === "url" && (
                   <>
                     <div style={{ marginBottom: 10 }}>
                       <label className="input-label" htmlFor="url-input">
-                        Target URL:
+                        {activeMode === "fish_dispatches"
+                          ? "Where should the fish go?"
+                          : "Target URL:"}
                       </label>
                       <input
                         id="url-input"
                         type="url"
                         className="win-input"
-                        placeholder="https://your-favorite-website.com"
+                        placeholder={flavor.placeholder}
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
                         onKeyDown={(e) => {
@@ -640,37 +1258,54 @@ export default function Home() {
                         }}
                       />
                     </div>
-                    <div className="examples">
-                      <span>or try: </span>
-                      {EXAMPLE_URLS.map((ex, i) => (
-                        <span key={ex.url}>
-                          <a
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setUrl(ex.url);
-                            }}
-                          >
-                            {ex.label}
-                          </a>
-                          {i < EXAMPLE_URLS.length - 1 && " \u00B7 "}
-                        </span>
-                      ))}
-                    </div>
+                    {activeMode === "site_roast" && (
+                      <div className="examples">
+                        <span>or try: </span>
+                        {EXAMPLE_URLS.map((ex, i) => (
+                          <span key={ex.url}>
+                            <a
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setUrl(ex.url);
+                              }}
+                            >
+                              {ex.label}
+                            </a>
+                            {i < EXAMPLE_URLS.length - 1 && " \u00B7 "}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </>
-                ) : (
+                )}
+
+                {flavor.inputType === "text" && (
                   <div>
                     <label className="input-label" htmlFor="text-input">
-                      {"What\u2019s the meme about?"}
+                      {activeMode === "unhinged_threads"
+                        ? "Topic:"
+                        : activeMode === "chaos_mode"
+                          ? "Input:"
+                          : "The take:"}
                     </label>
                     <textarea
                       id="text-input"
                       className="win-input win-textarea"
-                      placeholder={"Type anything \u2014 a hot take, a shower thought, a rant about your coworker..."}
+                      placeholder={flavor.placeholder}
                       value={text}
                       onChange={(e) => setText(e.target.value)}
                       rows={4}
                     />
+                  </div>
+                )}
+
+                {flavor.inputType === "none" && (
+                  <div className="trend-roast-idle">
+                    <p className="trend-roast-desc">
+                      No input needed. The fish will browse Hacker News, find
+                      something worth making fun of, and come back with a meme.
+                    </p>
                   </div>
                 )}
               </div>
@@ -680,7 +1315,11 @@ export default function Home() {
                 onClick={handleGenerate}
                 disabled={!canGenerate}
               >
-                {"\u25BA"} MEME ME {"\u25C4"}
+                {activeMode === "trend_roast"
+                  ? `${modeInfo.icon} FIND A TREND`
+                  : activeMode === "chaos_mode"
+                    ? `${modeInfo.icon} CHAOS`
+                    : `\u25BA MEME ME \u25C4`}
               </button>
             </div>
           )}
@@ -724,9 +1363,8 @@ export default function Home() {
           )}
 
           {/* ---- DONE STATE ---- */}
-          {state === "done" && memeUrl && (
+          {state === "done" && (memeUrl || textContent.length > 0) && (
             <div className="pop-in" style={{ position: "relative" }}>
-              {/* Sparkle burst */}
               <div className="sparkle-burst" aria-hidden="true">
                 {SPARKLE_BURST.map((s, i) => (
                   <span
@@ -744,52 +1382,77 @@ export default function Home() {
                 ))}
               </div>
 
-              <h2 className="impact result-title">
-                {"\u2726"} YOUR MEME IS READY {"\u2726"}
+              <h2 className="result-title">
+                {"\uD83D\uDC1F"}{" "}
+                {memeUrl ? "YOUR MEME IS READY" : "CONTENT SERVED"}
               </h2>
 
-              <div className="meme-frame">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={memeUrl}
-                  alt="Generated meme"
-                  onError={() => {
-                    setErrorMsg("Could not load meme image");
-                    setAppState("error");
-                  }}
-                />
-              </div>
+              {/* Meme result */}
+              {memeUrl && (
+                <>
+                  <div className="meme-frame">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={memeUrl}
+                      alt="Generated meme"
+                      onError={() => {
+                        setErrorMsg("Could not load meme image");
+                        setAppState("error");
+                      }}
+                    />
+                  </div>
 
-              <div className="btn-group">
-                <button className="win98-btn win98-btn-sm" onClick={handleCopy}>
-                  <IconCopy /> {copied ? "Copied!" : "Copy Link"}
-                </button>
-                <button
-                  className="win98-btn win98-btn-sm"
-                  onClick={handleDownload}
-                >
-                  <IconDownload /> Save
-                </button>
-                <button
-                  className="win98-btn win98-btn-sm"
-                  onClick={handleReset}
-                >
-                  <IconRefresh /> Make Another
-                </button>
-              </div>
+                  <div className="btn-group">
+                    <button className="win98-btn win98-btn-sm" onClick={handleCopy}>
+                      <IconCopy /> {copied ? "Copied!" : "Copy Link"}
+                    </button>
+                    <button
+                      className="win98-btn win98-btn-sm"
+                      onClick={handleDownload}
+                    >
+                      <IconDownload /> Save
+                    </button>
+                    <button
+                      className="win98-btn win98-btn-sm"
+                      onClick={handleReset}
+                    >
+                      <IconRefresh /> Make Another
+                    </button>
+                  </div>
 
-              {pageUrl && (
-                <p style={{ textAlign: "center", marginTop: 8 }}>
-                  <a
-                    href={pageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="win-link"
-                    style={{ fontSize: 11 }}
-                  >
-                    {"View on Imgflip \u2192"}
-                  </a>
-                </p>
+                  {pageUrl && (
+                    <p style={{ textAlign: "center", marginTop: 8 }}>
+                      <a
+                        href={pageUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="win-link"
+                        style={{ fontSize: 11 }}
+                      >
+                        {"View on Imgflip \u2192"}
+                      </a>
+                    </p>
+                  )}
+                </>
+              )}
+
+              {/* Text card result */}
+              {!memeUrl && textContent.length > 0 && (
+                <>
+                  <TextCardResult
+                    lines={textContent}
+                    title={textTitle}
+                    mode={activeMode}
+                  />
+                  <div className="btn-group" style={{ marginTop: 12 }}>
+                    <button
+                      className="win98-btn win98-btn-sm"
+                      onClick={handleReset}
+                    >
+                      <IconRefresh /> Make Another
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -800,13 +1463,13 @@ export default function Home() {
               <div className="error-row">
                 <div className="error-icon">{"\u26A0\uFE0F"}</div>
                 <div className="error-text">
-                  <strong>fishposts.exe has encountered an error.</strong>
+                  <strong>{modeInfo.exe} has encountered an error.</strong>
                   <br />
                   <br />
                   {errorMsg || "Something went wrong"}
                   <br />
                   <br />
-                  Try a different URL, or just try again.
+                  Try a different input, or just try again.
                 </div>
               </div>
               <div style={{ textAlign: "center" }}>
@@ -836,7 +1499,23 @@ export default function Home() {
         </div>
       </div>
 
-      <Taskbar memeCount={memeCount} />
+      {/* Start Menu (rendered above taskbar) */}
+      <StartMenu
+        isOpen={startMenuOpen}
+        activeMode={activeMode}
+        onSelectMode={handleModeSelect}
+        onClose={() => setStartMenuOpen(false)}
+      />
+
+      <Taskbar
+        memeCount={memeCount}
+        windows={windows}
+        topZ={topZ}
+        activeMode={activeMode}
+        startMenuOpen={startMenuOpen}
+        onStartClick={() => setStartMenuOpen((prev) => !prev)}
+        onWindowClick={handleTaskbarWindowClick}
+      />
     </div>
   );
 }
