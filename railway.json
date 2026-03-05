@@ -2,11 +2,9 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "cd fishposts && npm install && npm run build",
     "watchPatterns": ["fishposts/**"]
   },
   "deploy": {
-    "startCommand": "cd fishposts && node .next/standalone/server.js",
     "healthcheckPath": "/",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
