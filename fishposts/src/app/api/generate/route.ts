@@ -460,12 +460,12 @@ export async function POST(request: NextRequest) {
           const resultText = JSON.stringify(event.resultJson ?? event);
 
           // Detect LLM guard rejection — give a specific, helpful error
-          if (resultText.includes("Blocked by LLM guard") || resultText.includes("rejected")) {
+          if (resultText.includes("Blocked by LLM guard") || resultText.includes("Run rejected")) {
             sentFinal = true;
             console.error("[FishPosts] LLM guard blocked the prompt. Result:", resultText.slice(0, 300));
             await send({
               type: "error",
-              error: "The AI safety filter blocked this request. Try rephrasing — avoid real people's names or edgy topics.",
+              error: "Our meme bot's safety filter blocked this topic. This usually happens with country names, political figures, or controversial subjects. Try rephrasing without those — e.g. 'pop culture' instead of 'american pop culture'.",
             });
             return;
           }
@@ -563,12 +563,19 @@ export async function POST(request: NextRequest) {
         // Check for errors
         if (event.type === "ERROR" || event.status === "FAILED") {
           sentFinal = true;
-          await send({
-            type: "error",
-            error:
-              (event.message as string) ||
-              "Agent ran into an issue. Try again!",
-          });
+          const errMsg = String(event.message ?? "");
+          // Detect LLM guard block in error events too
+          if (errMsg.includes("Blocked by LLM guard") || errMsg.includes("Run rejected") || errMsg.includes("LLM guard")) {
+            await send({
+              type: "error",
+              error: "Our meme bot's safety filter blocked this topic. This usually happens with country names, political figures, or controversial subjects. Try rephrasing without those — e.g. 'pop culture' instead of 'american pop culture'.",
+            });
+          } else {
+            await send({
+              type: "error",
+              error: errMsg || "Agent ran into an issue. Try again!",
+            });
+          }
         }
       });
 
