@@ -194,6 +194,118 @@ const MODE_DESC: Record<ContentMode, string> = {
 };
 
 /* ================================================================
+   SCREEN PHASE TYPE
+   ================================================================ */
+
+type ScreenPhase = "booting" | "login" | "desktop";
+
+/* ================================================================
+   BOOT SCREEN — BIOS POST + branded loading screen
+   ================================================================ */
+
+const BIOS_LINES = [
+  "FishPosts BIOS v98.0",
+  "(C) 2024 FishPosts Inc.",
+  "",
+  "CPU: FishChip™ 4.20GHz",
+  "640K Base Memory           OK",
+  "Extended Memory: 42069K    OK",
+  "",
+  "Detecting Fish Hardware...",
+  "Fish Accelerator Card     [OK]",
+  "Meme Co-Processor         [OK]",
+  "Sarcasm Module            [OK]",
+  "Internet Explorer 4.0     [OK]",
+  "Dial-Up Modem 56K         [OK]",
+  "",
+  "All systems operational.",
+  "",
+  "C:\\> LOADING FISHPOSTS.EXE...",
+  "",
+  "Starting Windows 98...",
+];
+
+function BootScreen({ onComplete }: { onComplete: () => void }) {
+  const [stage, setStage] = useState<"bios" | "loading">("bios");
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  useEffect(() => {
+    stageTimeoutRef.current = setTimeout(() => setStage("loading"), 3000);
+    timeoutRef.current = setTimeout(() => {
+      sessionStorage.setItem("fishposts-booted", "1");
+      onCompleteRef.current();
+    }, 7000);
+    return () => {
+      if (stageTimeoutRef.current) clearTimeout(stageTimeoutRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  const handleSkip = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (stageTimeoutRef.current) clearTimeout(stageTimeoutRef.current);
+    sessionStorage.setItem("fishposts-booted", "1");
+    onComplete();
+  };
+
+  return (
+    <div className="boot-screen" onClick={handleSkip}>
+      {stage === "bios" ? (
+        <div className="boot-bios">
+          {BIOS_LINES.map((line, i) => (
+            <div
+              key={i}
+              className={`boot-line ${line.includes("[OK]") || line.includes(" OK") ? "boot-line-ok" : ""}`}
+              style={{ animationDelay: `${i * 0.15}s` }}
+            >
+              {line || "\u00A0"}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="boot-loading">
+          <div className="boot-logo">{"\uD83D\uDC1F"}</div>
+          <div className="boot-title">FishPosts 98</div>
+          <div className="boot-subtitle">Loading your memes...</div>
+          <div className="boot-progress-bar">
+            <div className="boot-progress-fill" />
+          </div>
+        </div>
+      )}
+      <div className="boot-skip">Click anywhere to skip</div>
+    </div>
+  );
+}
+
+/* ================================================================
+   LOGIN SCREEN — Win98 login dialog
+   ================================================================ */
+
+function LoginScreen({ onEnter }: { onEnter: () => void }) {
+  return (
+    <div className="login-screen">
+      <div className="login-dialog">
+        <div className="login-dialog-titlebar">
+          <span>{"\uD83D\uDC1F"}</span> Welcome to FishPosts
+        </div>
+        <div className="login-dialog-body">
+          <div className="login-avatar">{"\uD83D\uDC1F"}</div>
+          <div className="login-name">FishPosts</div>
+          <div className="login-subtitle">AI Meme Generator</div>
+          <button className="login-btn" onClick={onEnter}>
+            Log On
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
    SUB-COMPONENTS
    ================================================================ */
 
@@ -388,24 +500,56 @@ function StartMenu({
       <div className="start-menu-sidebar">
         <span className="start-menu-sidebar-text">FishPosts 98</span>
       </div>
-      <div className="start-menu-items">
-        <div className="start-menu-section-header">
-          <span className="start-menu-section-icon">{"\uD83D\uDDBC\uFE0F"}</span>
-          Meme Generators
+      <div className="start-menu-content">
+        {/* User profile header */}
+        <div className="start-menu-header">
+          <div className="start-menu-header-avatar">{"\uD83D\uDC1F"}</div>
+          <div className="start-menu-header-info">
+            <div className="start-menu-header-name">FishPosts</div>
+            <div className="start-menu-header-role">AI Meme Generator</div>
+          </div>
         </div>
-        {MEME_MODES.map(renderModeItem)}
         <div className="start-menu-divider" />
-        <div className="start-menu-section-header">
-          <span className="start-menu-section-icon">{"\uD83D\uDCDD"}</span>
-          Text Generators
+
+        <div className="start-menu-items">
+          <div className="start-menu-section-header">
+            <span className="start-menu-section-icon">{"\uD83D\uDDBC\uFE0F"}</span>
+            Meme Generators
+          </div>
+          {MEME_MODES.map(renderModeItem)}
+          <div className="start-menu-divider" />
+          <div className="start-menu-section-header">
+            <span className="start-menu-section-icon">{"\uD83D\uDCDD"}</span>
+            Text Generators
+          </div>
+          {TEXT_MODES.map(renderModeItem)}
         </div>
-        {TEXT_MODES.map(renderModeItem)}
+
         <div className="start-menu-divider" />
-        <div className="start-menu-item start-menu-item-disabled">
-          <span className="start-menu-icon">{"\u2699\uFE0F"}</span>
-          <span className="start-menu-label-wrap">
-            <span className="start-menu-label">Settings (coming soon)</span>
-          </span>
+        {/* Bottom actions */}
+        <div className="start-menu-footer">
+          <div className="start-menu-item start-menu-item-disabled">
+            <span className="start-menu-icon">{"\u2699\uFE0F"}</span>
+            <span className="start-menu-label-wrap">
+              <span className="start-menu-label">Settings</span>
+              <span className="start-menu-desc">coming soon</span>
+            </span>
+          </div>
+          <button
+            className="start-menu-item"
+            onClick={() => {
+              onClose();
+              sessionStorage.removeItem("fishposts-booted");
+              sessionStorage.removeItem("fishposts-fs-hint-shown");
+              window.location.reload();
+            }}
+          >
+            <span className="start-menu-icon">{"\uD83D\uDD04"}</span>
+            <span className="start-menu-label-wrap">
+              <span className="start-menu-label">Restart</span>
+              <span className="start-menu-desc">reboot FishPosts</span>
+            </span>
+          </button>
         </div>
       </div>
     </div>
@@ -420,6 +564,9 @@ function Taskbar({
   startMenuOpen,
   onStartClick,
   onWindowClick,
+  crtEnabled,
+  onCrtToggle,
+  onFullscreenToggle,
 }: {
   memeCount: number;
   windows: Record<WindowId, WindowState>;
@@ -428,6 +575,9 @@ function Taskbar({
   startMenuOpen: boolean;
   onStartClick: () => void;
   onWindowClick: (id: WindowId) => void;
+  crtEnabled: boolean;
+  onCrtToggle: () => void;
+  onFullscreenToggle: () => void;
 }) {
   const [time, setTime] = useState("");
 
@@ -485,6 +635,20 @@ function Taskbar({
             {"\uD83D\uDD25"} {memeCount}
           </span>
         )}
+        <button
+          className="tray-btn"
+          title={`CRT: ${crtEnabled ? "ON" : "OFF"}`}
+          onClick={onCrtToggle}
+        >
+          {"\uD83D\uDDA5\uFE0F"}
+        </button>
+        <button
+          className="tray-btn"
+          title="Fullscreen (F11)"
+          onClick={onFullscreenToggle}
+        >
+          {"\u26F6"}
+        </button>
         <span className="tray-item">{"\uD83D\uDC1F"}</span>
         <span className="tray-clock">{time}</span>
       </div>
@@ -634,6 +798,11 @@ function TextCardResult({
    ================================================================ */
 
 export default function Home() {
+  /* ---- Screen phase (boot → login → desktop) ---- */
+  const [screenPhase, setScreenPhase] = useState<ScreenPhase>("desktop");
+  const [crtEnabled, setCrtEnabled] = useState(false);
+  const [showFullscreenHint, setShowFullscreenHint] = useState(false);
+
   /* ---- App state ---- */
   const [activeMode, setActiveMode] = useState<ContentMode>("site_roast");
   const [url, setUrl] = useState("");
@@ -696,6 +865,32 @@ export default function Home() {
   }, []);
 
   useEffect(() => cleanup, [cleanup]);
+
+  /* ---- Boot / CRT initialization ---- */
+  useEffect(() => {
+    if (!sessionStorage.getItem("fishposts-booted")) {
+      setScreenPhase("booting");
+    }
+    if (localStorage.getItem("fishposts-crt") === "1") {
+      setCrtEnabled(true);
+    }
+  }, []);
+
+  const toggleCrt = useCallback(() => {
+    setCrtEnabled((prev) => {
+      const next = !prev;
+      localStorage.setItem("fishposts-crt", next ? "1" : "0");
+      return next;
+    });
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }
+  }, []);
 
   /* ---- isDesktop media query ---- */
   useEffect(() => {
@@ -1131,6 +1326,22 @@ export default function Home() {
      ================================================================ */
 
   return (
+    <div className={crtEnabled ? "crt-active" : undefined}>
+      {screenPhase === "booting" && (
+        <BootScreen onComplete={() => setScreenPhase("login")} />
+      )}
+      {screenPhase === "login" && (
+        <LoginScreen
+          onEnter={() => {
+            setScreenPhase("desktop");
+            if (!sessionStorage.getItem("fishposts-fs-hint-shown")) {
+              setShowFullscreenHint(true);
+              sessionStorage.setItem("fishposts-fs-hint-shown", "1");
+            }
+          }}
+        />
+      )}
+      {screenPhase === "desktop" && (
     <div className="desktop">
       <Marquee />
 
@@ -1515,7 +1726,22 @@ export default function Home() {
         startMenuOpen={startMenuOpen}
         onStartClick={() => setStartMenuOpen((prev) => !prev)}
         onWindowClick={handleTaskbarWindowClick}
+        crtEnabled={crtEnabled}
+        onCrtToggle={toggleCrt}
+        onFullscreenToggle={toggleFullscreen}
       />
+
+      {showFullscreenHint && (
+        <div
+          className="fs-hint"
+          onClick={() => setShowFullscreenHint(false)}
+          onAnimationEnd={() => setShowFullscreenHint(false)}
+        >
+          For the best experience, press F11 for fullscreen {"\uD83D\uDDA5\uFE0F"}
+        </div>
+      )}
+    </div>
+      )}
     </div>
   );
 }

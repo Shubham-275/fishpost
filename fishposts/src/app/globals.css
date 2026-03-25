@@ -55,13 +55,25 @@ body {
   min-height: 100vh;
   padding-bottom: 42px; /* room for taskbar */
   position: relative;
-  background: var(--desktop);
-  /* subtle tiled pattern like old wallpapers */
+  /* Win98 "Clouds" wallpaper — soft pale blue sky with hazy clouds */
+  background-color: #b0c4de;
   background-image:
-    radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px),
-    radial-gradient(circle, rgba(0,255,255,0.02) 1px, transparent 1px);
-  background-size: 32px 32px, 48px 48px;
-  background-position: 0 0, 16px 16px;
+    /* Large soft haze top-center */
+    radial-gradient(ellipse 600px 300px at 50% 25%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.15) 50%, transparent 80%),
+    /* Soft cloud mass left */
+    radial-gradient(ellipse 500px 250px at 15% 40%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, transparent 75%),
+    radial-gradient(ellipse 350px 180px at 8% 35%, rgba(255,255,255,0.35) 0%, transparent 65%),
+    /* Soft cloud mass right */
+    radial-gradient(ellipse 450px 220px at 82% 55%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, transparent 75%),
+    radial-gradient(ellipse 300px 150px at 88% 50%, rgba(255,255,255,0.3) 0%, transparent 65%),
+    /* Wispy cloud bottom */
+    radial-gradient(ellipse 550px 180px at 40% 75%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.08) 50%, transparent 75%),
+    radial-gradient(ellipse 400px 200px at 60% 80%, rgba(255,255,255,0.3) 0%, transparent 70%),
+    /* Thin high wisps */
+    radial-gradient(ellipse 700px 80px at 55% 10%, rgba(255,255,255,0.25) 0%, transparent 60%),
+    radial-gradient(ellipse 500px 60px at 30% 8%, rgba(255,255,255,0.2) 0%, transparent 55%),
+    /* Sky gradient — pale blue to slightly deeper */
+    linear-gradient(180deg, #a8c8e8 0%, #b0c4de 30%, #8faec8 70%, #7a9ab8 100%);
 }
 
 /* ==============================================================
@@ -1024,6 +1036,296 @@ body {
 }
 
 /* ==============================================================
+   BOOT SCREEN — BIOS POST + branded loader
+   ============================================================== */
+.boot-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+.boot-bios {
+  font-family: 'Courier New', Consolas, monospace;
+  color: #AAA;
+  font-size: 14px;
+  line-height: 1.8;
+  padding: 40px;
+  max-width: 600px;
+  width: 100%;
+}
+
+.boot-line {
+  opacity: 0;
+  animation: boot-line-appear 0.1s forwards;
+  white-space: pre;
+}
+
+.boot-line-ok {
+  color: #0f0;
+}
+
+.boot-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  animation: boot-line-appear 0.5s ease-out forwards;
+}
+
+.boot-logo {
+  font-size: 64px;
+  line-height: 1;
+}
+
+.boot-title {
+  font-family: Impact, 'Arial Black', sans-serif;
+  font-size: 28px;
+  color: #fff;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.boot-subtitle {
+  font-family: 'Comic Sans MS', cursive;
+  font-size: 13px;
+  color: var(--neon-cyan);
+}
+
+.boot-progress-bar {
+  border: 2px solid;
+  border-top-color: var(--border-shadow);
+  border-left-color: var(--border-shadow);
+  border-right-color: #fff;
+  border-bottom-color: #fff;
+  background: var(--win-gray);
+  width: 280px;
+  height: 22px;
+  padding: 2px;
+}
+
+.boot-progress-fill {
+  height: 100%;
+  background: var(--win-title);
+  animation: boot-progress-fill 3.5s linear forwards;
+}
+
+.boot-skip {
+  position: absolute;
+  bottom: 24px;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  font-size: 11px;
+  color: #555;
+}
+
+@keyframes boot-line-appear {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes boot-progress-fill {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+
+/* ==============================================================
+   LOGIN SCREEN — Win98 login dialog
+   ============================================================== */
+.login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background-color: #b0c4de;
+  background-image:
+    radial-gradient(ellipse 600px 300px at 50% 25%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.15) 50%, transparent 80%),
+    radial-gradient(ellipse 500px 250px at 15% 40%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, transparent 75%),
+    radial-gradient(ellipse 450px 220px at 82% 55%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, transparent 75%),
+    radial-gradient(ellipse 550px 180px at 40% 75%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.08) 50%, transparent 75%),
+    radial-gradient(ellipse 700px 80px at 55% 10%, rgba(255,255,255,0.25) 0%, transparent 60%),
+    linear-gradient(180deg, #a8c8e8 0%, #b0c4de 30%, #8faec8 70%, #7a9ab8 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-dialog {
+  border: 2px solid #fff;
+  border-top-color: var(--win-gray-light);
+  border-left-color: var(--win-gray-light);
+  border-right-color: var(--border-dark);
+  border-bottom-color: var(--border-dark);
+  background: var(--win-gray);
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.5), inset 1px 1px 0 #fff;
+  max-width: 360px;
+  width: 90vw;
+  animation: pop-in 0.3s ease-out;
+}
+
+.login-dialog-titlebar {
+  background: linear-gradient(90deg, var(--win-title) 0%, var(--win-title-end) 100%);
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  color: #fff;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  font-size: 13px;
+  font-weight: bold;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+}
+
+.login-dialog-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-avatar {
+  font-size: 48px;
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid;
+  border-top-color: var(--border-shadow);
+  border-left-color: var(--border-shadow);
+  border-right-color: #fff;
+  border-bottom-color: #fff;
+  background: #fff;
+}
+
+.login-name {
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  font-size: 16px;
+  font-weight: bold;
+  color: #000;
+}
+
+.login-subtitle {
+  font-family: 'Comic Sans MS', cursive;
+  font-size: 12px;
+  color: var(--text-gray);
+  margin-top: -8px;
+}
+
+.login-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 20px;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  color: #000;
+  background: var(--win-gray);
+  border: 2px solid;
+  border-top-color: #fff;
+  border-left-color: #fff;
+  border-right-color: var(--border-dark);
+  border-bottom-color: var(--border-dark);
+  cursor: pointer;
+  box-shadow: inset 1px 1px 0 var(--win-gray-light);
+  min-width: 80px;
+  margin-top: 4px;
+}
+
+.login-btn:active {
+  border-top-color: var(--border-dark);
+  border-left-color: var(--border-dark);
+  border-right-color: #fff;
+  border-bottom-color: #fff;
+  box-shadow: inset 1px 1px 0 var(--border-shadow);
+}
+
+/* ==============================================================
+   CRT MONITOR EFFECT — Scanlines + vignette overlay
+   ============================================================== */
+.crt-active::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+}
+
+.crt-active::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 60%,
+    rgba(0, 0, 0, 0.3) 100%
+  );
+}
+
+/* ==============================================================
+   TRAY BUTTONS — Interactive system tray icons
+   ============================================================== */
+.tray-btn {
+  background: none;
+  border: none;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 1px 4px;
+  color: #000;
+  line-height: 1;
+}
+
+.tray-btn:hover {
+  background: rgba(0,0,0,0.08);
+}
+
+.tray-btn:active {
+  background: rgba(0,0,0,0.15);
+}
+
+/* ==============================================================
+   FULLSCREEN HINT — Win98 tooltip balloon
+   ============================================================== */
+.fs-hint {
+  position: fixed;
+  bottom: 44px;
+  right: 8px;
+  z-index: 60;
+  background: #FFFFE1;
+  border: 1px solid #000;
+  padding: 6px 10px;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  font-size: 11px;
+  color: #000;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+  animation: fs-hint-fade 5s ease-in-out forwards;
+  cursor: pointer;
+}
+
+@keyframes fs-hint-fade {
+  0%  { opacity: 0; }
+  10% { opacity: 1; }
+  80% { opacity: 1; }
+  100%{ opacity: 0; }
+}
+
+/* ==============================================================
    RESPONSIVE — Mobile adjustments
    ============================================================== */
 @media (max-width: 640px) {
@@ -1032,6 +1334,9 @@ body {
   .win98-btn { font-size: 14px; padding: 6px 16px; min-width: 80px; }
   .taskbar-windows { display: none; }
   .system-tray { margin-left: auto; }
+  .boot-bios { font-size: 11px; padding: 20px; }
+  .boot-title { font-size: 22px; }
+  .boot-logo { font-size: 48px; }
 }
 
 @media (max-width: 1023px) {
@@ -1304,8 +1609,9 @@ body {
   border-left-color: #fff;
   border-right-color: var(--border-dark);
   border-bottom-color: var(--border-dark);
-  box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
-  min-width: 260px;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.4);
+  min-width: 280px;
+  max-height: calc(100vh - 48px);
   animation: start-menu-in 0.12s ease-out;
 }
 @keyframes start-menu-in {
@@ -1313,7 +1619,7 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 .start-menu-sidebar {
-  width: 24px;
+  width: 26px;
   background: linear-gradient(to top, #000080, #1084d0);
   display: flex;
   align-items: flex-end;
@@ -1326,9 +1632,53 @@ body {
   transform: rotate(180deg);
   color: #fff;
   font-family: Impact, sans-serif;
-  font-size: 16px;
-  letter-spacing: 1px;
+  font-size: 18px;
+  letter-spacing: 2px;
   text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+.start-menu-content {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  overflow-y: auto;
+}
+.start-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: linear-gradient(90deg, var(--win-gray) 0%, var(--win-gray-light) 100%);
+}
+.start-menu-header-avatar {
+  font-size: 32px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid;
+  border-top-color: var(--border-shadow);
+  border-left-color: var(--border-shadow);
+  border-right-color: #fff;
+  border-bottom-color: #fff;
+  background: #fff;
+  flex-shrink: 0;
+}
+.start-menu-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.start-menu-header-name {
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  font-size: 14px;
+  font-weight: bold;
+  color: #000;
+}
+.start-menu-header-role {
+  font-family: 'Comic Sans MS', cursive;
+  font-size: 11px;
+  color: var(--text-gray);
 }
 .start-menu-items {
   display: flex;
@@ -1339,8 +1689,8 @@ body {
 .start-menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 24px 6px 8px;
+  gap: 10px;
+  padding: 7px 24px 7px 10px;
   border: none;
   background: transparent;
   font-family: 'Segoe UI', Tahoma, sans-serif;
@@ -1349,6 +1699,7 @@ body {
   cursor: pointer;
   color: #000;
   width: 100%;
+  transition: none;
 }
 .start-menu-item:hover {
   background: #000080;
@@ -1356,6 +1707,15 @@ body {
 }
 .start-menu-item-active {
   font-weight: bold;
+}
+.start-menu-item-active::after {
+  content: "◄";
+  font-size: 8px;
+  margin-left: auto;
+  color: #000080;
+}
+.start-menu-item-active:hover::after {
+  color: #fff;
 }
 .start-menu-item-disabled {
   color: #808080;
@@ -1365,7 +1725,7 @@ body {
   background: transparent;
   color: #808080;
 }
-.start-menu-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+.start-menu-icon { font-size: 18px; width: 22px; text-align: center; flex-shrink: 0; }
 .start-menu-label { white-space: nowrap; font-size: 13px; }
 .start-menu-label-wrap {
   display: flex;
@@ -1387,7 +1747,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px 2px;
+  padding: 5px 10px 3px;
   font-family: 'Segoe UI', Tahoma, sans-serif;
   font-size: 11px;
   font-weight: bold;
@@ -1404,4 +1764,14 @@ body {
   margin: 3px 4px;
   border-top: 1px solid var(--border-shadow);
   border-bottom: 1px solid #fff;
+}
+.start-menu-footer {
+  border-top: 2px solid var(--border-shadow);
+  padding: 2px 0;
+}
+.start-menu-footer .start-menu-icon {
+  font-size: 14px;
+}
+.start-menu-footer .start-menu-item {
+  padding: 5px 24px 5px 10px;
 }
