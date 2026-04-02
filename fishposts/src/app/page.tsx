@@ -3,795 +3,28 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { MODE_INFO, type ContentMode } from "@/lib/prompts";
 
-/* ================================================================
-   TYPES
-   ================================================================ */
+import type { AppState, WindowId, WindowState, ScreenPhase, ProgressEvent } from "./types";
+import {
+  FISH_LOGS,
+  STATUS_MESSAGES,
+  EXAMPLE_URLS,
+  STEPS,
+  FISH_FACTS,
+  SPARKLE_CHARS,
+  NEON_COLORS,
+  SPARKLE_BURST,
+  MODE_FLAVOR,
+} from "./constants";
 
-type AppState = "idle" | "generating" | "done" | "error";
-type WindowId = "fishposts" | "recent_memes";
-
-interface ProgressEvent {
-  type: "progress" | "done" | "error";
-  message?: string;
-  percent?: number;
-  memeUrl?: string;
-  pageUrl?: string;
-  textContent?: string[];
-  textTitle?: string;
-  mode?: string;
-  error?: string;
-}
-
-interface WindowState {
-  x: number;
-  y: number;
-  zIndex: number;
-  minimized: boolean;
-  maximized: boolean;
-  preMaxPos?: { x: number; y: number };
-}
-
-/* ================================================================
-   STATIC DATA
-   ================================================================ */
-
-const FISH_LOGS = [
-  "C:\\fishposts> deploy_fish.exe",
-  "> deploying the fish...",
-  "> swimming to target URL... \uD83E\uDD1D",
-  "> page found \u2014 loading content...",
-  "> reading the headline... \uD83D\uDC40",
-  "> scanning body text...",
-  "> analyzing page vibes...",
-  "> extracting the key message...",
-  "> pulling out the juicy parts...",
-  '> "synergy" detected. yikes.',
-  "> buzzword density: CRITICAL \u26A0\uFE0F",
-  "> understanding the vibe...",
-  "> swimming to imgflip now... \uD83C\uDFCA",
-  "> browsing meme templates...",
-  "> drake? distracted bf? hmm...",
-  "> debating which template fits...",
-  "> this one? no wait, THIS one!",
-  "> template locked in \uD83D\uDD12",
-  "> writing top text...",
-  "> crafting bottom text...",
-  "> applying impact font...",
-  "> fine-tuning the punchline...",
-  "> adjusting comedy levels... \uD83D\uDCC8",
-  "> rendering final meme...",
-  "> almost done \u2014 fish is tired \uD83D\uDE2E\u200D\uD83D\uDCA8",
-];
-
-const STATUS_MESSAGES = [
-  "Reading the page...",
-  "Analyzing content...",
-  "Finding the perfect template...",
-  "Writing comedy gold...",
-  "Almost there...",
-];
-
-const EXAMPLE_URLS = [
-  { label: "stripe.com", url: "https://stripe.com", icon: "\uD83D\uDCB3" },
-  { label: "notion.so", url: "https://notion.so", icon: "\uD83D\uDCDD" },
-  { label: "figma.com", url: "https://figma.com", icon: "\uD83C\uDFA8" },
-  { label: "vercel.com", url: "https://vercel.com", icon: "\u25B2" },
-  { label: "linear.app", url: "https://linear.app", icon: "\u26A1" },
-  { label: "shopify.com", url: "https://shopify.com", icon: "\uD83D\uDECD\uFE0F" },
-];
-
-const STEPS = [
-  { num: "1", emoji: "\uD83D\uDD17", title: "Pick a mode", desc: "Click Start and choose your weapon." },
-  { num: "2", emoji: "\uD83D\uDC1F", title: "Feed the fish", desc: "Drop a URL, paste a take, or let it roam." },
-  { num: "3", emoji: "\uD83C\uDFA8", title: "Fish does its thing", desc: "Our AI literally browses the internet." },
-  { num: "4", emoji: "\uD83D\uDC80", title: "Content drops", desc: "Memes, threads, dispatches \u2014 so specific it's scary." },
-];
-
-const FISH_FACTS = [
-  { emoji: "\uD83E\uDDE0", fact: "A goldfish has a longer attention span than the average internet user." },
-  { emoji: "\uD83D\uDC21", fact: "Pufferfish contain enough toxin to kill 30 adults. They chose violence." },
-  { emoji: "\uD83C\uDF0A", fact: "There are more fish in the sea than stars visible to the naked eye." },
-  { emoji: "\uD83D\uDCA4", fact: "Some fish sleep with one eye open. Trust issues are real." },
-  { emoji: "\uD83E\uDD88", fact: "Sharks have been around longer than trees. They\u2019re OG." },
-  { emoji: "\uD83C\uDFA8", fact: "Clownfish can change gender. They\u2019re built different." },
-  { emoji: "\uD83D\uDCAA", fact: "The mantis shrimp punches so hard it boils water around its fist." },
-  { emoji: "\uD83D\uDC40", fact: "A seahorse can move its eyes independently. Multitasking king." },
-  { emoji: "\u26A1", fact: "Electric eels can produce 860 volts. That\u2019s a weapon." },
-  { emoji: "\uD83E\uDDD3", fact: "Some deep sea fish create their own light. Bioluminescent drip." },
-  { emoji: "\uD83C\uDFC3", fact: "Sailfish can swim 68 mph. Faster than most people drive." },
-  { emoji: "\uD83E\uDD14", fact: "Fish can recognize human faces. They\u2019re judging you right now." },
-];
-
-const SPARKLE_CHARS = ["\u2726", "\u2727", "\u2605", "\u00B7", "\u22C6"];
-const NEON_COLORS = ["#FF00FF", "#00FFFF", "#FFFF00", "#00FF00"];
-
-const SPARKLE_BURST = Array.from({ length: 24 }, (_, i) => ({
-  left: `${(i * 4.3 + 3) % 100}%`,
-  char: SPARKLE_CHARS[i % SPARKLE_CHARS.length],
-  color: NEON_COLORS[i % NEON_COLORS.length],
-  delay: `${(i * 0.05).toFixed(2)}s`,
-  duration: `${(1.2 + (i * 0.08) % 1).toFixed(2)}s`,
-}));
-
-/** Mode descriptions shown in idle state */
-const MODE_FLAVOR: Record<ContentMode, { tagline: string; placeholder?: string; inputType: "url" | "text" | "none" }> = {
-  site_roast: {
-    tagline: "Paste a URL. The fish visits it. A meme appears.",
-    placeholder: "https://your-favorite-website.com",
-    inputType: "url",
-  },
-  trend_roast: {
-    tagline: "The fish browses trending tech news and makes fun of whatever it finds.",
-    inputType: "none",
-  },
-  quote_dunks: {
-    tagline: "Paste a tweet, a LinkedIn post, a hot take. Get 3 devastating responses.",
-    placeholder: "Paste a tweet, a LinkedIn post, a hot take...",
-    inputType: "text",
-  },
-  fish_dispatches: {
-    tagline: "The fish visits your URL and writes unhinged first-person dispatches.",
-    placeholder: "https://where-should-the-fish-go.com",
-    inputType: "url",
-  },
-  unhinged_threads: {
-    tagline: "The fish researches a topic and writes a thread that escalates into chaos.",
-    placeholder: "What topic should the fish go off about?",
-    inputType: "text",
-  },
-  chaos_mode: {
-    tagline: "Random template + random tone + your input = pure WTF.",
-    placeholder: "Type literally anything...",
-    inputType: "text",
-  },
-  corporate_bs: {
-    tagline: "Paste corporate speak. The fish translates what it actually means.",
-    placeholder: "Paste a corporate email, LinkedIn post, or press release...",
-    inputType: "text",
-  },
-  plot_twist: {
-    tagline: "Enter any statement. Get a meme with a devastating plot twist.",
-    placeholder: "Type any normal statement...",
-    inputType: "text",
-  },
-  excuse_gen: {
-    tagline: "Describe the situation. Get a Win98 error message as your excuse.",
-    placeholder: "What do you need an excuse for?",
-    inputType: "text",
-  },
-};
-
-/** Start Menu mode groups */
-const MEME_MODES: ContentMode[] = [
-  "site_roast",
-  "trend_roast",
-  "chaos_mode",
-  "plot_twist",
-];
-
-const TEXT_MODES: ContentMode[] = [
-  "quote_dunks",
-  "fish_dispatches",
-  "unhinged_threads",
-  "corporate_bs",
-  "excuse_gen",
-];
-
-/** All modes flat (for validation, etc.) */
-const MODE_ORDER: ContentMode[] = [...MEME_MODES, ...TEXT_MODES];
-
-/** Short description for each mode in the Start Menu */
-const MODE_DESC: Record<ContentMode, string> = {
-  site_roast: "URL → meme",
-  trend_roast: "trending news → meme",
-  chaos_mode: "your text → random meme",
-  plot_twist: "your text → plot twist meme",
-  quote_dunks: "hot take → 3 dunks",
-  fish_dispatches: "URL → fish reviews the site",
-  unhinged_threads: "topic → viral thread",
-  corporate_bs: "corporate text → translation",
-  excuse_gen: "situation → Win98 error excuse",
-};
-
-/* ================================================================
-   SCREEN PHASE TYPE
-   ================================================================ */
-
-type ScreenPhase = "booting" | "login" | "desktop";
-
-/* ================================================================
-   BOOT SCREEN — BIOS POST + branded loading screen
-   ================================================================ */
-
-const BIOS_LINES = [
-  "FishPosts BIOS v98.0",
-  "(C) 2024 FishPosts Inc.",
-  "",
-  "CPU: FishChip™ 4.20GHz",
-  "640K Base Memory           OK",
-  "Extended Memory: 42069K    OK",
-  "",
-  "Detecting Fish Hardware...",
-  "Fish Accelerator Card     [OK]",
-  "Meme Co-Processor         [OK]",
-  "Sarcasm Module            [OK]",
-  "Internet Explorer 4.0     [OK]",
-  "Dial-Up Modem 56K         [OK]",
-  "",
-  "All systems operational.",
-  "",
-  "C:\\> LOADING FISHPOSTS.EXE...",
-  "",
-  "Starting Windows 98...",
-];
-
-function BootScreen({ onComplete }: { onComplete: () => void }) {
-  const [stage, setStage] = useState<"bios" | "loading">("bios");
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
-
-  useEffect(() => {
-    stageTimeoutRef.current = setTimeout(() => setStage("loading"), 3000);
-    timeoutRef.current = setTimeout(() => {
-      sessionStorage.setItem("fishposts-booted", "1");
-      onCompleteRef.current();
-    }, 7000);
-    return () => {
-      if (stageTimeoutRef.current) clearTimeout(stageTimeoutRef.current);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, []);
-
-  const handleSkip = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (stageTimeoutRef.current) clearTimeout(stageTimeoutRef.current);
-    sessionStorage.setItem("fishposts-booted", "1");
-    onComplete();
-  };
-
-  return (
-    <div className="boot-screen" onClick={handleSkip}>
-      {stage === "bios" ? (
-        <div className="boot-bios">
-          {BIOS_LINES.map((line, i) => (
-            <div
-              key={i}
-              className={`boot-line ${line.includes("[OK]") || line.includes(" OK") ? "boot-line-ok" : ""}`}
-              style={{ animationDelay: `${i * 0.15}s` }}
-            >
-              {line || "\u00A0"}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="boot-loading">
-          <div className="boot-logo">{"\uD83D\uDC1F"}</div>
-          <div className="boot-title">FishPosts 98</div>
-          <div className="boot-subtitle">Loading your memes...</div>
-          <div className="boot-progress-bar">
-            <div className="boot-progress-fill" />
-          </div>
-        </div>
-      )}
-      <div className="boot-skip">Click anywhere to skip</div>
-    </div>
-  );
-}
-
-/* ================================================================
-   LOGIN SCREEN — Win98 login dialog
-   ================================================================ */
-
-function LoginScreen({ onEnter }: { onEnter: () => void }) {
-  return (
-    <div className="login-screen">
-      <div className="login-dialog">
-        <div className="login-dialog-titlebar">
-          <span>{"\uD83D\uDC1F"}</span> Welcome to FishPosts
-        </div>
-        <div className="login-dialog-body">
-          <div className="login-avatar">{"\uD83D\uDC1F"}</div>
-          <div className="login-name">FishPosts</div>
-          <div className="login-subtitle">AI Meme Generator</div>
-          <button className="login-btn" onClick={onEnter}>
-            Log On
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ================================================================
-   SUB-COMPONENTS
-   ================================================================ */
-
-function IconCopy() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
-      <path d="M10.5 5.5V3.5a1.5 1.5 0 0 0-1.5-1.5H3.5A1.5 1.5 0 0 0 2 3.5V9a1.5 1.5 0 0 0 1.5 1.5h2" />
-    </svg>
-  );
-}
-
-function IconDownload() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M8 2v8.5M4.5 7L8 10.5 11.5 7M3 13h10" />
-    </svg>
-  );
-}
-
-function IconRefresh() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2.5 8a5.5 5.5 0 0 1 9.9-3.3M13.5 8a5.5 5.5 0 0 1-9.9 3.3" />
-      <path d="M12.5 2v3h-3M3.5 14v-3h3" />
-    </svg>
-  );
-}
-
-function Win98Window({
-  title,
-  children,
-  className,
-  statusBar,
-  windowState,
-  isDesktop,
-  onMinimize,
-  onMaximize,
-  onClose,
-  onFocus,
-  onDragStart,
-}: {
-  title: string;
-  children: React.ReactNode;
-  className?: string;
-  statusBar?: React.ReactNode;
-  windowState: WindowState;
-  isDesktop: boolean;
-  onMinimize: () => void;
-  onMaximize: () => void;
-  onClose: () => void;
-  onFocus: () => void;
-  onDragStart: (e: React.MouseEvent) => void;
-}) {
-  const maximizedStyle: React.CSSProperties | undefined =
-    isDesktop && windowState.maximized
-      ? {
-          position: "absolute",
-          left: 0,
-          top: 0,
-          width: "100%",
-          height: "calc(100vh - 42px)",
-          zIndex: windowState.zIndex,
-        }
-      : isDesktop
-        ? {
-            position: "absolute",
-            left: windowState.x,
-            top: windowState.y,
-            zIndex: windowState.zIndex,
-          }
-        : undefined;
-
-  return (
-    <div
-      className={`win-window ${className || ""} ${windowState.minimized ? "win-window-minimized" : ""} ${windowState.maximized ? "win-window-maximized" : ""}`}
-      style={maximizedStyle}
-      onMouseDown={onFocus}
-    >
-      <div
-        className={`win-titlebar ${isDesktop && !windowState.maximized ? "win-titlebar-draggable" : ""}`}
-        onMouseDown={(e) => {
-          if (!(e.target as HTMLElement).closest(".win-buttons")) {
-            onDragStart(e);
-          }
-        }}
-        onDoubleClick={(e) => {
-          if (isDesktop && !(e.target as HTMLElement).closest(".win-buttons")) {
-            onMaximize();
-          }
-        }}
-      >
-        <div className="win-title">
-          <span>{"\uD83D\uDC1F"}</span> {title}
-        </div>
-        <div className="win-buttons">
-          <button
-            className="win-btn"
-            aria-label="Minimize"
-            onClick={(e) => {
-              e.stopPropagation();
-              onMinimize();
-            }}
-          >
-            _
-          </button>
-          <button
-            className="win-btn"
-            aria-label="Maximize"
-            onClick={(e) => {
-              e.stopPropagation();
-              onMaximize();
-            }}
-          >
-            {windowState.maximized ? "\u2750" : "\u25A1"}
-          </button>
-          <button
-            className="win-btn"
-            aria-label="Close"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
-          >
-            {"\u00D7"}
-          </button>
-        </div>
-      </div>
-      {!windowState.minimized && (
-        <>
-          <div className="win-body">{children}</div>
-          {statusBar && <>{statusBar}</>}
-        </>
-      )}
-    </div>
-  );
-}
-
-function StartMenu({
-  isOpen,
-  activeMode,
-  onSelectMode,
-  onClose,
-}: {
-  isOpen: boolean;
-  activeMode: ContentMode;
-  onSelectMode: (mode: ContentMode) => void;
-  onClose: () => void;
-}) {
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(target) &&
-        !target.closest(".start-btn")
-      ) {
-        onClose();
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  const renderModeItem = (mode: ContentMode) => {
-    const info = MODE_INFO[mode];
-    return (
-      <button
-        key={mode}
-        className={`start-menu-item ${mode === activeMode ? "start-menu-item-active" : ""}`}
-        onClick={() => {
-          onSelectMode(mode);
-          onClose();
-        }}
-      >
-        <span className="start-menu-icon">{info.icon}</span>
-        <span className="start-menu-label-wrap">
-          <span className="start-menu-label">{info.label}</span>
-          <span className="start-menu-desc">{MODE_DESC[mode]}</span>
-        </span>
-      </button>
-    );
-  };
-
-  return (
-    <div className="start-menu" ref={menuRef}>
-      <div className="start-menu-sidebar">
-        <span className="start-menu-sidebar-text">FishPosts 98</span>
-      </div>
-      <div className="start-menu-content">
-        {/* User profile header */}
-        <div className="start-menu-header">
-          <div className="start-menu-header-avatar">{"\uD83D\uDC1F"}</div>
-          <div className="start-menu-header-info">
-            <div className="start-menu-header-name">FishPosts</div>
-            <div className="start-menu-header-role">AI Meme Generator</div>
-          </div>
-        </div>
-        <div className="start-menu-divider" />
-
-        <div className="start-menu-items">
-          <div className="start-menu-section-header">
-            <span className="start-menu-section-icon">{"\uD83D\uDDBC\uFE0F"}</span>
-            Meme Generators
-          </div>
-          {MEME_MODES.map(renderModeItem)}
-          <div className="start-menu-divider" />
-          <div className="start-menu-section-header">
-            <span className="start-menu-section-icon">{"\uD83D\uDCDD"}</span>
-            Text Generators
-          </div>
-          {TEXT_MODES.map(renderModeItem)}
-        </div>
-
-        <div className="start-menu-divider" />
-        {/* Bottom actions */}
-        <div className="start-menu-footer">
-          <div className="start-menu-item start-menu-item-disabled">
-            <span className="start-menu-icon">{"\u2699\uFE0F"}</span>
-            <span className="start-menu-label-wrap">
-              <span className="start-menu-label">Settings</span>
-              <span className="start-menu-desc">coming soon</span>
-            </span>
-          </div>
-          <button
-            className="start-menu-item"
-            onClick={() => {
-              onClose();
-              sessionStorage.removeItem("fishposts-booted");
-              sessionStorage.removeItem("fishposts-fs-hint-shown");
-              window.location.reload();
-            }}
-          >
-            <span className="start-menu-icon">{"\uD83D\uDD04"}</span>
-            <span className="start-menu-label-wrap">
-              <span className="start-menu-label">Restart</span>
-              <span className="start-menu-desc">reboot FishPosts</span>
-            </span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Taskbar({
-  memeCount,
-  windows,
-  topZ,
-  activeMode,
-  startMenuOpen,
-  onStartClick,
-  onWindowClick,
-  crtEnabled,
-  onCrtToggle,
-  onFullscreenToggle,
-}: {
-  memeCount: number;
-  windows: Record<WindowId, WindowState>;
-  topZ: number;
-  activeMode: ContentMode;
-  startMenuOpen: boolean;
-  onStartClick: () => void;
-  onWindowClick: (id: WindowId) => void;
-  crtEnabled: boolean;
-  onCrtToggle: () => void;
-  onFullscreenToggle: () => void;
-}) {
-  const [time, setTime] = useState("");
-
-  useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      setTime(
-        now.toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        })
-      );
-    };
-    update();
-    const interval = setInterval(update, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Dynamic window config with mode-specific title
-  const windowConfig: Record<WindowId, { title: string; icon: string }> = {
-    fishposts: {
-      title: MODE_INFO[activeMode].exe,
-      icon: MODE_INFO[activeMode].icon,
-    },
-    recent_memes: { title: "recent_memes.exe", icon: "\uD83D\uDCC1" },
-  };
-
-  return (
-    <div className="taskbar">
-      <button
-        className={`start-btn ${startMenuOpen ? "start-btn-pressed" : ""}`}
-        onClick={onStartClick}
-      >
-        <span className="start-flag">{"\uD83E\uDE9F"}</span> Start
-      </button>
-      <div className="taskbar-windows">
-        {(Object.keys(windowConfig) as WindowId[]).map((id) => (
-          <button
-            key={id}
-            className={`taskbar-window-btn ${
-              windows[id].zIndex === topZ && !windows[id].minimized
-                ? "taskbar-window-active"
-                : ""
-            }`}
-            onClick={() => onWindowClick(id)}
-          >
-            {windowConfig[id].icon} {windowConfig[id].title}
-          </button>
-        ))}
-      </div>
-      <div className="system-tray">
-        {memeCount > 0 && (
-          <span className="tray-item" title={`${memeCount} memes generated`}>
-            {"\uD83D\uDD25"} {memeCount}
-          </span>
-        )}
-        <button
-          className="tray-btn"
-          title={`CRT: ${crtEnabled ? "ON" : "OFF"}`}
-          onClick={onCrtToggle}
-        >
-          {"\uD83D\uDDA5\uFE0F"}
-        </button>
-        <button
-          className="tray-btn"
-          title="Fullscreen (F11)"
-          onClick={onFullscreenToggle}
-        >
-          {"\u26F6"}
-        </button>
-        <span className="tray-item">{"\uD83D\uDC1F"}</span>
-        <span className="tray-clock">{time}</span>
-      </div>
-    </div>
-  );
-}
-
-function Marquee() {
-  return (
-    <div className="marquee-bar">
-      <div className="marquee-text">
-        {"\u2605"} WELCOME TO FISHPOSTS DOT COM {"\u2605"} 9 MODES OF UNHINGED
-        CONTENT {"\u2605"} CLICK START TO BEGIN {"\u2605"} POWERED BY A LITERAL
-        FISH BROWSING THE INTERNET {"\u2605"} 100% FREE {"\u2605"} NO LOGIN{" "}
-        {"\u2605"} FISHPOSTS DOT COM {"\u2605"}
-      </div>
-    </div>
-  );
-}
-
-/** Text card display for text mode results */
-function TextCardResult({
-  lines,
-  title,
-  mode,
-}: {
-  lines: string[];
-  title?: string;
-  mode: ContentMode;
-}) {
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState(false);
-
-  const handleSaveAsImage = async () => {
-    setSaving(true);
-    setSaveError(false);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-    try {
-      const res = await fetch("/api/render-card", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, content: lines, title }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      if (!res.ok) throw new Error("Failed to render card");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `fishposts-${mode}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      clearTimeout(timeout);
-      setSaveError(true);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  /* ---- Win98 Error Dialog for excuse_gen ---- */
-  if (mode === "excuse_gen") {
-    return (
-      <div className="excuse-dialog">
-        <div className="excuse-dialog-titlebar">
-          <span>⚠️ excuse_gen.exe</span>
-          <span className="excuse-dialog-close">×</span>
-        </div>
-        <div className="excuse-dialog-body">
-          <div className="excuse-dialog-icon">⚠️</div>
-          <div className="excuse-dialog-content">
-            {title && <div className="excuse-dialog-situation">{title}</div>}
-            <div className="excuse-dialog-excuse">{lines[0] || "Error: no excuse generated."}</div>
-          </div>
-        </div>
-        <div className="excuse-dialog-footer">
-          <button className="excuse-dialog-btn">OK</button>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-          <button
-            className="win98-btn win98-btn-sm"
-            onClick={handleSaveAsImage}
-            disabled={saving}
-          >
-            <IconDownload /> {saving ? "Saving..." : "Save as Image"}
-          </button>
-          {saveError && (
-            <span style={{ color: "#ff4444", fontSize: 12 }}>
-              Failed — try again
-            </span>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  /* ---- Mode-specific emojis for line badges ---- */
-  const modeEmojis: Record<string, string[]> = {
-    quote_dunks: ["\uD83D\uDDE1\uFE0F", "\uD83D\uDD25", "\uD83D\uDCA3"],
-    fish_dispatches: ["\uD83D\uDC1F", "\uD83D\uDC1F", "\uD83D\uDC1F", "\uD83D\uDC1F", "\uD83D\uDC1F"],
-    unhinged_threads: ["\uD83E\uDDF5", "\uD83E\uDDF5", "\uD83E\uDDF5", "\uD83E\uDDF5", "\uD83E\uDDF5"],
-    corporate_bs: ["\uD83D\uDCBC", "\uD83D\uDCBC", "\uD83D\uDCBC", "\uD83D\uDCBC", "\uD83D\uDCBC"],
-  };
-  const emojis = modeEmojis[mode] || [];
-
-  return (
-    <div className="text-card" data-mode={mode}>
-      {title && (
-        <div className="text-card-header">
-          <span className="text-card-header-icon">{MODE_INFO[mode]?.icon || "\uD83D\uDC1F"}</span>
-          <span className="text-card-title">{title}</span>
-        </div>
-      )}
-      <div className="text-card-lines">
-        {lines.map((line, i) => (
-          <div key={i} className="text-card-line" style={{ animationDelay: `${i * 0.1}s` }}>
-            <span className="text-card-badge">{emojis[i] || `${i + 1}`}</span>
-            <span className="text-card-text">{line}</span>
-          </div>
-        ))}
-      </div>
-      <div className="text-card-footer">
-        <span className="text-card-watermark">{"\uD83D\uDC1F"} fishposts.exe</span>
-        <button
-          className="win98-btn win98-btn-sm"
-          onClick={handleSaveAsImage}
-          disabled={saving}
-        >
-          <IconDownload /> {saving ? "Saving..." : "Save as Image"}
-        </button>
-        {saveError && (
-          <span style={{ color: "#ff4444", fontSize: 12 }}>
-            Failed — try again
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
+import { BootScreen } from "./components/BootScreen";
+import { LoginScreen } from "./components/LoginScreen";
+import { Win98Window } from "./components/Win98Window";
+import { StartMenu } from "./components/StartMenu";
+import { Taskbar } from "./components/Taskbar";
+import { Marquee } from "./components/Marquee";
+import { TextCardResult } from "./components/TextCardResult";
+import { IconCopy, IconDownload, IconRefresh } from "./components/Icons";
+import { Win98ErrorBoundary } from "./components/ErrorBoundary";
 
 /* ================================================================
    MAIN COMPONENT
@@ -1128,7 +361,6 @@ export default function Home() {
     logIdx.current = 0;
     setFishLogs([FISH_LOGS[0]]);
 
-    // Close start menu if open
     setStartMenuOpen(false);
 
     const startTime = Date.now();
@@ -1159,14 +391,12 @@ export default function Home() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    // Build request body based on active mode
     const body: Record<string, string> = { mode: activeMode };
     if (flavor.inputType === "url") {
       body.url = url.trim();
     } else if (flavor.inputType === "text") {
       body.text = text.trim();
     }
-    // "none" input type (trend_roast) sends just { mode }
 
     try {
       const res = await fetch("/api/generate", {
@@ -1209,7 +439,6 @@ export default function Home() {
               setProgress(100);
 
               if (event.memeUrl) {
-                // Meme mode result
                 setMemeUrl(event.memeUrl);
                 if (event.pageUrl) setPageUrl(event.pageUrl);
                 setMemeCount((prev) => {
@@ -1229,7 +458,6 @@ export default function Home() {
                   return updated;
                 });
               } else if (event.textContent) {
-                // Text mode result
                 setTextContent(event.textContent);
                 if (event.textTitle) setTextTitle(event.textTitle);
               }
@@ -1306,11 +534,9 @@ export default function Home() {
 
   const handleModeSelect = (mode: ContentMode) => {
     setActiveMode(mode);
-    // Reset to idle when switching modes
     if (state !== "generating") {
       handleReset();
     }
-    // Ensure fishposts window is visible and focused
     setWindows((prev) => ({
       ...prev,
       fishposts: { ...prev.fishposts, minimized: false },
@@ -1326,6 +552,7 @@ export default function Home() {
      ================================================================ */
 
   return (
+    <Win98ErrorBoundary>
     <div className={crtEnabled ? "crt-active" : undefined}>
       {screenPhase === "booting" && (
         <BootScreen onComplete={() => setScreenPhase("login")} />
@@ -1447,7 +674,6 @@ export default function Home() {
               </h1>
               <p className="subhead">{flavor.tagline}</p>
 
-              {/* Mode-specific input */}
               <div className="win-tab-body">
                 {flavor.inputType === "url" && (
                   <>
@@ -1743,5 +969,6 @@ export default function Home() {
     </div>
       )}
     </div>
+    </Win98ErrorBoundary>
   );
 }

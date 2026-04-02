@@ -7,6 +7,7 @@ import {
   type OutputType,
 } from "@/lib/prompts";
 import { generateWithGroq } from "@/lib/groq";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const maxDuration = 300; // 5 min for long automations
 
@@ -373,6 +374,23 @@ function mapEventToProgress(
    ================================================================ */
 
 export async function POST(request: NextRequest) {
+  // Rate limit by IP
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const { ok, remaining } = rateLimit(ip);
+  if (!ok) {
+    return new Response(
+      JSON.stringify({ error: "Too many requests. Please wait a minute and try again." }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": "60",
+          "X-RateLimit-Remaining": "0",
+        },
+      },
+    );
+  }
+
   let url: string | undefined;
   let text: string | undefined;
   let mode: ContentMode;

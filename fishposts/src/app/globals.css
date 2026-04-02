@@ -1,5 +1,3 @@
-@import "tailwindcss";
-
 /* ==============================================================
    WINDOWS 98 DESIGN SYSTEM — FishPosts.exe
    ============================================================== */
@@ -1751,4 +1749,55 @@ body {
 }
 .start-menu-footer .start-menu-item {
   padding: 5px 24px 5px 10px;
+}
+
+/* ==============================================================
+   BSOD — Error Boundary
+   ============================================================== */
+
+.bsod {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #000080;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Lucida Console", "Courier New", monospace;
+  color: #fff;
+}
+.bsod-content {
+  max-width: 700px;
+  padding: 40px;
+  text-align: center;
+  line-height: 1.8;
+  font-size: 16px;
+}
+.bsod-header {
+  display: inline-block;
+  background: #a8a8a8;
+  color: #000080;
+  padding: 2px 12px;
+  font-weight: bold;
+  margin-bottom: 24px;
+  font-size: 18px;
+}
+.bsod-error {
+  margin-top: 24px;
+  color: #a8a8a8;
+  font-size: 13px;
+  word-break: break-word;
+}
+.bsod-restart {
+  margin-top: 32px;
+  background: none;
+  border: none;
+  color: #fff;
+  font-family: inherit;
+  font-size: 16px;
+  cursor: pointer;
+  animation: bsod-blink 1s step-end infinite;
+}
+@keyframes bsod-blink {
+  50% { opacity: 0; }
 }

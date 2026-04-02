@@ -77,9 +77,10 @@ export async function POST(request: NextRequest) {
   const style = MODE_STYLES[mode] || DEFAULT_STYLE;
 
   // Width / Height from query params (default 1200x675 for social sharing)
+  // Clamped to prevent OOM from absurdly large values
   const url = new URL(request.url);
-  const width = parseInt(url.searchParams.get("w") || "1200", 10);
-  const height = parseInt(url.searchParams.get("h") || "675", 10);
+  const width = Math.max(200, Math.min(2400, parseInt(url.searchParams.get("w") || "1200", 10) || 1200));
+  const height = Math.max(200, Math.min(2400, parseInt(url.searchParams.get("h") || "675", 10) || 675));
 
   /* ================================================================
      excuse_gen — Win98 Error Dialog card
