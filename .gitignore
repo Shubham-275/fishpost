@@ -34,3 +34,6 @@ next-env.d.ts
 
 # Claude plans (local only)
 .claude/
+
+# Chronicle
+.chronicle/
