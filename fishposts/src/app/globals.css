@@ -55,25 +55,8 @@ body {
   min-height: 100vh;
   padding-bottom: 42px; /* room for taskbar */
   position: relative;
-  /* Win98 "Clouds" wallpaper — soft pale blue sky with hazy clouds */
-  background-color: #b0c4de;
-  background-image:
-    /* Large soft haze top-center */
-    radial-gradient(ellipse 600px 300px at 50% 25%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.15) 50%, transparent 80%),
-    /* Soft cloud mass left */
-    radial-gradient(ellipse 500px 250px at 15% 40%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, transparent 75%),
-    radial-gradient(ellipse 350px 180px at 8% 35%, rgba(255,255,255,0.35) 0%, transparent 65%),
-    /* Soft cloud mass right */
-    radial-gradient(ellipse 450px 220px at 82% 55%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, transparent 75%),
-    radial-gradient(ellipse 300px 150px at 88% 50%, rgba(255,255,255,0.3) 0%, transparent 65%),
-    /* Wispy cloud bottom */
-    radial-gradient(ellipse 550px 180px at 40% 75%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.08) 50%, transparent 75%),
-    radial-gradient(ellipse 400px 200px at 60% 80%, rgba(255,255,255,0.3) 0%, transparent 70%),
-    /* Thin high wisps */
-    radial-gradient(ellipse 700px 80px at 55% 10%, rgba(255,255,255,0.25) 0%, transparent 60%),
-    radial-gradient(ellipse 500px 60px at 30% 8%, rgba(255,255,255,0.2) 0%, transparent 55%),
-    /* Sky gradient — pale blue to slightly deeper */
-    linear-gradient(180deg, #a8c8e8 0%, #b0c4de 30%, #8faec8 70%, #7a9ab8 100%);
+  background: url('/wallpaper.webp') center/cover no-repeat fixed;
+  background-color: #008080; /* Win98 teal fallback */
 }
 
 /* ==============================================================
@@ -1140,14 +1123,8 @@ body {
   position: fixed;
   inset: 0;
   z-index: 100;
-  background-color: #b0c4de;
-  background-image:
-    radial-gradient(ellipse 600px 300px at 50% 25%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.15) 50%, transparent 80%),
-    radial-gradient(ellipse 500px 250px at 15% 40%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, transparent 75%),
-    radial-gradient(ellipse 450px 220px at 82% 55%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, transparent 75%),
-    radial-gradient(ellipse 550px 180px at 40% 75%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.08) 50%, transparent 75%),
-    radial-gradient(ellipse 700px 80px at 55% 10%, rgba(255,255,255,0.25) 0%, transparent 60%),
-    linear-gradient(180deg, #a8c8e8 0%, #b0c4de 30%, #8faec8 70%, #7a9ab8 100%);
+  background: url('/wallpaper.webp') center/cover no-repeat fixed;
+  background-color: #008080;
   display: flex;
   justify-content: center;
   align-items: center;

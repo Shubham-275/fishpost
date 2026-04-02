@@ -799,7 +799,7 @@ function TextCardResult({
 
 export default function Home() {
   /* ---- Screen phase (boot → login → desktop) ---- */
-  const [screenPhase, setScreenPhase] = useState<ScreenPhase>("desktop");
+  const [screenPhase, setScreenPhase] = useState<ScreenPhase>("booting");
   const [crtEnabled, setCrtEnabled] = useState(false);
   const [showFullscreenHint, setShowFullscreenHint] = useState(false);
 
@@ -868,8 +868,8 @@ export default function Home() {
 
   /* ---- Boot / CRT initialization ---- */
   useEffect(() => {
-    if (!sessionStorage.getItem("fishposts-booted")) {
-      setScreenPhase("booting");
+    if (sessionStorage.getItem("fishposts-booted")) {
+      setScreenPhase("desktop");
     }
     if (localStorage.getItem("fishposts-crt") === "1") {
       setCrtEnabled(true);
