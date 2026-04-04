@@ -42,8 +42,9 @@ ${modeContext}
   * 5 boxes: Escalating argument or progression, final box = mic drop
 - UNDER 10 WORDS per box. Short punchy text.
 - Think about what the template IMAGE shows — match your text to each panel's visual.
-- Be SPECIFIC — this is the #1 rule. Reference real names, real products, real events, real quotes, real numbers. Generic memes are BORING. A meme about Trump should reference something he actually did/said. A meme about OpenAI should reference GPT, Sam Altman, or a real controversy.
-- NEVER just restate the user's input. Add your own knowledge and find a clever angle.
+- Be SPECIFIC — this is the #1 rule. Reference real names, real products, real events, real quotes, real numbers. Generic memes are BORING. The humor comes from specificity that insiders recognize.
+- NEVER just restate the user's input. Add your own knowledge and find a clever, original angle.
+- Write ORIGINAL text every time — never reuse phrasing from your training data or prior conversations.
 - Be FUNNY, satirical, edgy, honest. No filter. Make people screenshot it.
 - Go for VARIETY — don't always pick Drake or the same template. Mix it up.
 
@@ -127,24 +128,15 @@ function getMemeContext(mode: ContentMode, observations: string, input?: string)
     case "trend_roast":
       return `Make a meme about one of these trending stories:\n\n${observations}\n\nPick the most memeable one. Be savage and specific.`;
     case "chaos_mode":
-      return `Make a meme about this topic:\n\nUser said: "${input}"\n\nIMPORTANT: Do NOT just restate what the user typed. That's lazy and boring. Use your KNOWLEDGE to find a hyper-specific, funny angle.
-
-GOOD MEME EXAMPLES (specific, insider-knowledge level):
-- Topic "Trump" + Drake template → top: "Reading the briefing" / bottom: "Tweeting at 3am about covfefe"
-- Topic "OpenAI" + Distracted Boyfriend → top: "Shipping safe AGI" / bottom: "Another GPT wrapper with a $20B valuation"
-- Topic "JavaScript" + Expanding Brain → "var" / "let & const" / "TypeScript" / "Rewriting it in Rust"
-- Topic "Elon Musk" + Two Buttons → "Fix Twitter DMs" / "Rename it to X" / sweating
-
-BAD MEMES (generic, just restates the topic):
-- Topic "Trump" → "Like Trump / Don't like Trump" (BORING - says nothing specific)
-- Topic "OpenAI" → "AI good / AI bad" (GENERIC - could be about anything)
-
-Your meme MUST reference a specific real thing: a real quote, a real event, a real product name, a real controversy, a real behavior pattern. Make it so specific that someone who follows the topic would laugh and screenshot it.`;
+      return `Make an ORIGINAL meme about this topic:\n\nUser said: "${input}"\n\nRULES FOR GREAT MEMES:
+1. Reference a SPECIFIC real thing about this topic — an actual event, decision, quote, product, controversy, or behavior pattern that really happened.
+2. The humor comes from the GAP between expectation and reality, or from an ironic contradiction that insiders would recognize.
+3. NEVER just restate the topic as "like X / don't like X" or "X good / X bad" — that's not a joke.
+4. Think: what would get 10K likes on Twitter? What would people screenshot and send to friends who follow this topic?
+5. Write ORIGINAL text — do not reuse or paraphrase any example you've seen before.
+6. The punchline should make someone who knows the topic say "that's SO accurate it hurts".`;
     case "plot_twist":
-      return `Make a meme where this statement is the SETUP, and you add a devastating PLOT TWIST as the punchline:\n\n"${input}"\n\nThe twist must be SPECIFIC and UNEXPECTED — not just a generic reversal.
-
-GOOD twists: "I'm learning to code" → bottom: "LinkedIn says I'm a 10x engineer now"
-BAD twists: "I'm learning to code" → bottom: "Plot twist: it's hard" (BORING, obvious)`;
+      return `Make a meme where this statement is the SETUP, and you add a devastating PLOT TWIST as the punchline:\n\n"${input}"\n\nThe twist must be SPECIFIC, UNEXPECTED, and ORIGINAL. Not a generic reversal like "plot twist: it's hard". The punchline should subvert the setup in a way that's painfully accurate or absurdly specific.`;
     default:
       return `Make a meme based on: ${observations}`;
   }
