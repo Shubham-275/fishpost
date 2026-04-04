@@ -24,7 +24,7 @@ function sseData(data: object): string {
    ================================================================ */
 
 function buildMemeSystemPrompt(templateList: string, modeContext: string): string {
-  return `You are the funniest meme creator on the internet. You pick the perfect template and write text that MATCHES how that template is used.
+  return `You are a viral meme creator. Your memes get 50K likes because they make people LAUGH OUT LOUD — not just nod.
 
 ## AVAILABLE TEMPLATES (id: name — how it works)
 ${templateList}
@@ -32,21 +32,28 @@ ${templateList}
 ## YOUR TASK
 ${modeContext}
 
-## CRITICAL RULES
-- Each template shows [N boxes] — you MUST write EXACTLY that many texts.
-- Some templates have a usage guide after the "—". If present, FOLLOW IT closely.
-- For templates WITHOUT a guide, use this approach:
-  * 2 boxes: Box 1 = setup, Box 2 = punchline
-  * 3 boxes: Box 1 = setup, Box 2 = build, Box 3 = punchline/twist
-  * 4 boxes: Tell a mini story — escalate across all 4 panels
-  * 5 boxes: Escalating argument or progression, final box = mic drop
-- UNDER 10 WORDS per box. Short punchy text.
-- Think about what the template IMAGE shows — match your text to each panel's visual.
-- Be SPECIFIC — this is the #1 rule. Reference real names, real products, real events, real quotes, real numbers. Generic memes are BORING. The humor comes from specificity that insiders recognize.
-- NEVER just restate the user's input. Add your own knowledge and find a clever, original angle.
-- Write ORIGINAL text every time — never reuse phrasing from your training data or prior conversations.
-- Be FUNNY, satirical, edgy, honest. No filter. Make people screenshot it.
-- Go for VARIETY — don't always pick Drake or the same template. Mix it up.
+## THE #1 RULE: MAKE PEOPLE LAUGH
+A meme is NOT an observation. A meme is NOT an opinion. A meme is a JOKE.
+- BAD: "Investing in FSD" / "Investing in SpaceX" ← this is just stating a preference, not funny
+- BAD: "Google kills products" / "Google kills more products" ← just repeating the same thing, not a joke
+- GOOD: A meme has IRONY, ABSURDITY, or an UNEXPECTED twist that makes you exhale through your nose.
+- The punchline should make someone LAUGH and send it to a friend. If it just makes them think "yeah true" — it's not a meme, it's a LinkedIn post.
+
+## TEMPLATE RULES
+- Each template shows [N boxes] — write EXACTLY that many texts.
+- Follow the template guide after "—" if present.
+- NEVER pick Drake unless it's genuinely the best fit. Drake is overused. Prefer templates like Distracted Boyfriend, Disaster Girl, Left Exit 12, Surprised Pikachu, Hide the Pain Harold, Boardroom Meeting, Expanding Brain, or others that create a VISUAL JOKE.
+- For 2-box: setup → punchline (the punchline must be FUNNY, not just a contrasting statement)
+- For 3-box: setup → escalation → absurd twist
+- For 4-box: each panel escalates the absurdity until the final panel is unhinged
+- UNDER 8 WORDS per box. Shorter = funnier.
+
+## WHAT MAKES IT FUNNY
+- IRONY: saying one thing, meaning another. The gap between expectation and reality.
+- EXAGGERATION: taking a real thing to an absurd extreme.
+- SELF-AWARENESS: acknowledging the thing everyone thinks but nobody says.
+- SPECIFICITY: "Sam Altman announcing GPT-7 while GPT-4 still can't count" is funnier than "AI companies overpromise."
+- RELATABILITY: the audience goes "that's literally me" or "I know someone exactly like this."
 
 ## OUTPUT
 Return ONLY valid JSON:
@@ -128,13 +135,17 @@ function getMemeContext(mode: ContentMode, observations: string, input?: string)
     case "trend_roast":
       return `Make a meme about one of these trending stories:\n\n${observations}\n\nPick the most memeable one. Be savage and specific.`;
     case "chaos_mode":
-      return `Make an ORIGINAL meme about this topic:\n\nUser said: "${input}"\n\nRULES FOR GREAT MEMES:
-1. Reference a SPECIFIC real thing about this topic — an actual event, decision, quote, product, controversy, or behavior pattern that really happened.
-2. The humor comes from the GAP between expectation and reality, or from an ironic contradiction that insiders would recognize.
-3. NEVER just restate the topic as "like X / don't like X" or "X good / X bad" — that's not a joke.
-4. Think: what would get 10K likes on Twitter? What would people screenshot and send to friends who follow this topic?
-5. Write ORIGINAL text — do not reuse or paraphrase any example you've seen before.
-6. The punchline should make someone who knows the topic say "that's SO accurate it hurts".`;
+      return `Make a HILARIOUS meme about: "${input}"
+
+Find the FUNNIEST angle — the irony, the hypocrisy, the absurdity, the thing everyone knows but nobody says out loud.
+
+DO NOT just state facts or opinions about the topic. Find the JOKE. Examples of what a joke looks like:
+- The gap between what someone SAYS vs what they DO
+- The thing that's obviously true but nobody admits
+- Taking a real behavior to its absurd logical extreme
+- A specific embarrassing moment or decision everyone remembers
+
+Use the research context below to find specific, real details that make the meme land harder.`;
     case "plot_twist":
       return `Make a meme where this statement is the SETUP, and you add a devastating PLOT TWIST as the punchline:\n\n"${input}"\n\nThe twist must be SPECIFIC, UNEXPECTED, and ORIGINAL. Not a generic reversal like "plot twist: it's hard". The punchline should subvert the setup in a way that's painfully accurate or absurdly specific.`;
     default:
@@ -259,8 +270,35 @@ export async function POST(request: NextRequest) {
         await send({ type: "progress", message: "Found some gems...", percent: 35 });
 
       } else if (INPUT_MODES.includes(mode) && text) {
-        observations = text.trim();
-        await send({ type: "progress", message: "Processing your input...", percent: 25 });
+        const userInput = text.trim();
+        observations = userInput;
+
+        // Enrich with TinyFish Fetch — grab real-time web context about the topic
+        // This makes memes more current, specific, and grounded in reality
+        await send({ type: "progress", message: "Researching the topic...", percent: 10 });
+        try {
+          // Build a search-like URL to fetch context about the topic
+          const searchQuery = encodeURIComponent(userInput.slice(0, 100));
+          const enrichUrl = `https://en.wikipedia.org/wiki/${searchQuery.replace(/%20/g, "_")}`;
+
+          const enrichment = await fetchPageContent(enrichUrl);
+          if (enrichment.text && enrichment.text.length > 100) {
+            observations = `USER INPUT: "${userInput}"\n\nRESEARCH CONTEXT (from the web — use specific details from this):\n${enrichment.text.slice(0, 2000)}`;
+            await send({ type: "progress", message: "Found fresh context!", percent: 30 });
+          } else {
+            // Wikipedia didn't have it — try a Google search page
+            const googleUrl = `https://www.google.com/search?q=${searchQuery}`;
+            const googleResult = await fetchPageContent(googleUrl);
+            if (googleResult.text && googleResult.text.length > 100) {
+              observations = `USER INPUT: "${userInput}"\n\nRESEARCH CONTEXT (from the web):\n${googleResult.text.slice(0, 2000)}`;
+              await send({ type: "progress", message: "Got some context!", percent: 30 });
+            }
+          }
+        } catch (enrichErr) {
+          // Enrichment failed — continue with just the user input, Groq still works
+          console.log(`[FishPosts] Enrichment failed for "${userInput}": ${enrichErr instanceof Error ? enrichErr.message : enrichErr}`);
+          await send({ type: "progress", message: "Processing your input...", percent: 25 });
+        }
       }
 
       if (!observations) {
